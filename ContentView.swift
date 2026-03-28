@@ -61,10 +61,21 @@ struct ContentView: View {
         //call the recognize text function to read the text off of the image
         .onChange(of: selectedImage) {
             if let selectedImage = selectedImage {
-                recognizeText(from: selectedImage) { lines in
-                    print(lines)
-                }
+                processImage(from: selectedImage)
             }
+        }
+    }
+    
+    func processImage(from image: UIImage){
+        recognizeText(from: image) { lines in
+            let result = getInfoFromText(from: lines)
+            let drawDates = result.drawDates
+            let drawNumbers = result.drawNumbers
+            let drawSpecial = result.drawSpecial
+            
+            print("drawDates: ", drawDates)
+            print("drawNumbers: ", drawNumbers)
+            print("drawSpecial: ", drawSpecial)
         }
     }
 }
