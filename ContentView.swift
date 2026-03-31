@@ -68,7 +68,7 @@ struct ContentView: View {
     
     func processImage(from image: UIImage){
         recognizeText(from: image) { lines in
-            let result = getInfoFromText(from: lines)
+            let result = getInfoFromText(from: lines, game: "euromillions")
             let drawDates = result.drawDates
             let drawNumbers = result.drawNumbers
             let drawSpecial = result.drawSpecial

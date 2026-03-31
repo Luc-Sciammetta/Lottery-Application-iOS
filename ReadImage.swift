@@ -15,10 +15,10 @@ func recognizeText(from image: UIImage, completion: @escaping ([String]) -> Void
             completion([])
             return
         }
-        
+
         //we found text!
         let lines = observations
-            .sorted { $0.boundingBox.minY > $1.boundingBox.minY } //sort the lines from top to bottom
+            .sorted { $0.boundingBox.origin.y > $1.boundingBox.origin.y } //sort the lines from top to bottom
             .compactMap { $0.topCandidates(1).first?.string } //takes out the text from the observations
         
         completion(lines) //hands the list back to whoever asked
