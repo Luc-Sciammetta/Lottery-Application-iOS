@@ -1,4 +1,5 @@
 import SwiftUI
+import SwiftData
 
 @main
 struct Lottery_AppApp: App {
@@ -6,5 +7,6 @@ struct Lottery_AppApp: App {
         WindowGroup {
             ContentView()
         }
+        .modelContainer(for: LotteryDraw.self)
     }
 }

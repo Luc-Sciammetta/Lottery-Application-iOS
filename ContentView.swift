@@ -1,10 +1,13 @@
 import SwiftUI
+import SwiftData
 import PhotosUI
 
 struct ContentView: View {
     @State private var selectedItem: PhotosPickerItem? //holds the selected photo from the image library
     @State private var selectedImage: UIImage? //holds the loaded image from the image library
     @State private var showingCamera = false
+    
+    @Environment(\.modelContext) private var context //context for saving the lottery data
     
     var body: some View {
         VStack {
@@ -67,6 +70,7 @@ struct ContentView: View {
     }
     
     func processImage(from image: UIImage){
+        /// Processes the uploaded/captured image
         recognizeText(from: image) { lines in
             let result = getInfoFromText(from: lines, game: "euromillions")
             let drawDates = result.drawDates
@@ -76,6 +80,22 @@ struct ContentView: View {
             print("drawDates: ", drawDates)
             print("drawNumbers: ", drawNumbers)
             print("drawSpecial: ", drawSpecial)
+        }
+        
+        //try? clearDatabase(context: context)
+        
+        let response: [LotteryDraw] = (try? getAllDraws(context: context)) ?? [] //the ?? [] unwraps the response of [LotteryDraw]?
+        print("size: ", response.count)
+    }
+    
+    func getDataFromAPI(game: String, context: ModelContext){
+        /// Updates/gets the data from the API and adds it into the phone's database
+        Task {
+            do {
+                try await fetchFromAPIandStore(game: game, context: context)
+            } catch {
+                print("Error fetching from API: \(error)")
+            }
         }
     }
 }

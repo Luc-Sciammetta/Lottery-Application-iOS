@@ -92,21 +92,29 @@ func getInfoFromText(from lines: [String], game: String) -> (drawDates: [String]
         
         let tokens = line.split(separator: " ")
         
-         var specialSwitch = false
+        var specialSwitch = false
+        var finishToken = true
         
         for token in tokens {
-            //TODO: If we see a string in the middle of out numbers, chances are those numbers arent actually drawNumbers
-//            print("token: ", token)
+            print("token: ", token)
+            if !finishToken { //skip the rest of the tokens in token
+                continue
+            }
             
+            if (!foundNumbers.isEmpty || !foundSpecials.isEmpty) && !token.allSatisfy({ $0.isNumber }) {
+                //we have found a string in the middle of our numbers, so tehse numebrs are not drawNumbers
+                foundNumbers.removeAll()
+                foundSpecials.removeAll()
+                finishToken = false
+            }
+                        
             if LOTTERY_CONFIGS[game]?.special_labels.contains(String(token).uppercased()) == true {
-                print("Hey")
                 //now any numbers we see in the line are special numbers
                 specialSwitch = true
                 continue
             }
             
             if let match = try? parenNumberPattern.firstMatch(in: String(token)){
-//                print("Hi")
                 foundSpecials.append(String(match.output.dropFirst().dropLast())) //drop the () from the match to get just the number
                 specialSwitch = true //we found a special number, so we can assume the rest in the row are special numbers
                 continue //so that we dont get to the drawNumberPattern match if-statement
@@ -114,7 +122,6 @@ func getInfoFromText(from lines: [String], game: String) -> (drawDates: [String]
             
             if let match = try? drawNumberPattern.firstMatch(in: String(token)){
                 if specialSwitch{ //special number
-                    print("helloo")
                     foundSpecials.append(String(match.output))
                 }else{ //regular draw number
                     foundNumbers.append(String(match.output))
@@ -131,7 +138,6 @@ func getInfoFromText(from lines: [String], game: String) -> (drawDates: [String]
         }
         
         if foundSpecials.count == LOTTERY_CONFIGS[game]?.special { //then we have probably found a group of special numbers
-            print("why")
             possibleDrawSpecial.append(foundSpecials)
             foundSpecials = []
         }
