@@ -27,6 +27,21 @@ class LotteryDraw { //class structure to hold the specific lottery drawing
     }
 }
 
+struct WinDict{
+    let drawDate: Date
+    let matchedNumbers: [Int]
+    let numberOfMatchedNumbers: Int
+    let matchedSpecials: [Int]
+    let numberOfMatchedSpecials: Int
+}
+
+let lowestToWin: [String: [[Int]]] = [ //list containing the matchedNumbers and matchedSpecials needed to win a prize for one of the games
+    "powerball":    [[5,1],[5,0],[4,1],[4,0],[3,1],[3,0],[2,1],[1,1],[0,1]],
+    "megamillions": [[5,1],[5,0],[4,1],[4,0],[3,1],[3,0],[2,1],[1,1],[0,1]],
+    "lottoamerica": [[5,1],[5,0],[4,1],[4,0],[3,1],[3,0],[2,1],[1,1],[0,1]],
+    "euromillions": [[5,2],[5,1],[5,0],[4,2],[4,1],[3,2],[4,0],[2,2],[3,1],[3,0],[1,2],[2,1],[2,0]]
+]
+
 func fetchFromAPIandStore(game: String, firstDate: String = "2025-01-01", secondDate: String = "2030-01-01", context: ModelContext) async throws {
     /// Gets data from the API and stores the data into the phone's database.
 
@@ -104,12 +119,28 @@ func clearDatabase(context: ModelContext) throws {
     try context.save()
 }
 
-func getDraw(game: String, drawingDate: Date, context: ModelContext) throws -> LotteryDraw? {
+func getDraw(game: String, drawingDate: Date, context: ModelContext) throws -> [LotteryDraw]? {
     /// Gets a specific lottery draw if given a game and a drawing date
     let descriptor = FetchDescriptor<LotteryDraw>(
         predicate: #Predicate { $0.game == game && $0.drawingDate == drawingDate }
     )
-    return try context.fetch(descriptor).first!
+    let results = try context.fetch(descriptor)
+    if results.count != 1 {
+        //TODO: DO THIS CASE
+    }
+    
+    return results
+}
+
+func getDrawsBetweenDates(game: String, drawDates: [Date], context: ModelContext) throws -> [LotteryDraw]? {
+    /// Gets all lottery draws based on a given game for a given range of dates
+    let start = drawDates[0]
+    let end = drawDates[1]
+        
+    let descriptor = FetchDescriptor<LotteryDraw>(
+        predicate: #Predicate { $0.game == game && $0.drawingDate >= start && $0.drawingDate <= end }
+    )
+    return try context.fetch(descriptor)
 }
 
 func getDraws(game: String, context: ModelContext) throws -> [LotteryDraw] {
@@ -124,4 +155,74 @@ func getAllDraws(context: ModelContext) throws -> [LotteryDraw] {
     /// Gets all lottery draws from the database
     let descriptor = FetchDescriptor<LotteryDraw>()
     return try context.fetch(descriptor)
+}
+
+func checkForWin(game: String, drawNumbers: [[Int]], drawSpecials: [[Int]], drawDates: [Date]? = nil, context: ModelContext) -> [WinDict] {
+    var draws: [LotteryDraw] = []
+    if drawDates == nil {
+        do {
+            draws = try getDraws(game: game, context: context)
+        } catch {
+            print("Error getting all draws for \(game). drawDates is nil")
+            return []
+        }
+    } else if let drawDates, drawDates.count == 1 {
+        do {
+            guard let result = try getDraw(game: game, drawingDate: drawDates[0], context: context) else {
+                print("No draw found for \(game) on \(drawDates[0]).")
+                return []
+            }
+            draws = result
+        } catch {
+            print("Error getting draw for \(game) on \(drawDates[0]). drawDates is 1")
+            return []
+        }
+    } else if let drawDates, drawDates.count == 2 {
+        do {
+            guard let result = try getDrawsBetweenDates(game: game, drawDates: drawDates, context: context) else {
+                print("No draws found for \(game) between \(drawDates[0]) and \(drawDates[1]).")
+                return []
+            }
+            draws = result
+        } catch {
+            print("Error getting draw for \(game) on \(drawDates[0]) and \(drawDates[1]). drawDates is 2")
+            return []
+        }
+    } else {
+        print("Error, had more than 2 dates in drawDates")
+        return []
+    }
+    
+    let matchesNeeded = lowestToWin[game]
+    var potentialWins: [WinDict] = []
+    
+    for draw in draws {
+        for (index, numbers) in drawNumbers.enumerated() {
+            let specials = index < drawSpecials.count ? drawSpecials[index] : []
+            let winDict: WinDict = checkMatch(draw: draw, numbers: numbers, specials: specials)
+            let group: [Int] = [winDict.numberOfMatchedNumbers, winDict.numberOfMatchedSpecials]
+            if matchesNeeded?.contains(group) == true {
+                //we have won something (maybe)
+                potentialWins.append(winDict)
+            }
+        }
+    }
+    
+    return potentialWins
+}
+
+func checkMatch(draw: LotteryDraw, numbers: [Int], specials: [Int]) -> WinDict {
+    let drawNumbers = [draw.ball1, draw.ball2, draw.ball3, draw.ball4, draw.ball5]
+    let drawSpecials = [draw.special1] + (draw.special2.map { [$0] } ?? []) //if special2 is not nil, then .map unwraps it and adds it to the array, else nothing happens
+    
+    let matchedNumbers = numbers.filter { drawNumbers.contains($0) }
+    let matchedSpecials = specials.filter { drawSpecials.contains($0) }
+    
+    return WinDict(
+        drawDate: draw.drawingDate,
+        matchedNumbers: matchedNumbers,
+        numberOfMatchedNumbers: matchedNumbers.count,
+        matchedSpecials: matchedSpecials,
+        numberOfMatchedSpecials: matchedSpecials.count
+    )
 }

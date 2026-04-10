@@ -64,31 +64,90 @@ struct ContentView: View {
         //call the recognize text function to read the text off of the image
         .onChange(of: selectedImage) {
             if let selectedImage = selectedImage {
-                processImage(from: selectedImage)
+                Task {
+                    await processImage(from: selectedImage)
+                }
             }
         }
     }
     
-    func processImage(from image: UIImage){
+    
+    func processImage(from image: UIImage) async{
         /// Processes the uploaded/captured image
+
+        //try? clearDatabase(context: context)
+        
+//        await getDataFromAPI(game: "powerball", context: context)
+    
+        let response: [LotteryDraw] = (try? getAllDraws(context: context)) ?? [] //the ?? [] unwraps the response of [LotteryDraw]?
+        print("dataset size: ", response.count)
+        
+        let game = "powerball"
+        
         recognizeText(from: image) { lines in
-            let result = getInfoFromText(from: lines, game: "euromillions")
+            let result = getInfoFromText(from: lines, game: game, mainTolerance: 2, specialTolerance: 0)
             let drawDates = result.drawDates
             let drawNumbers = result.drawNumbers
             let drawSpecial = result.drawSpecial
             
-            print("drawDates: ", drawDates)
-            print("drawNumbers: ", drawNumbers)
-            print("drawSpecial: ", drawSpecial)
+            //convert [[String]] numbers to [[Int]] by flattening and parsing
+            let formattedNumbers: [[Int]] = drawNumbers.map { $0.compactMap { Int($0) } }
+            let formattedSpecials: [[Int]] = drawSpecial.map { $0.compactMap { Int($0) } }
+            
+            let formattedDates: [Date] = convertStringsToDate(drawDates: drawDates)
+            
+            print("formatted dates: ", formattedDates)
+            print("formatted numbers: ", formattedNumbers)
+            print("formatted special: ", formattedSpecials)
+            
+            let wins = checkForWin(game: game, drawNumbers: formattedNumbers, drawSpecials: formattedSpecials, drawDates: formattedDates, context: context)
+            print("wins: ", wins)
         }
         
-        //try? clearDatabase(context: context)
         
-        let response: [LotteryDraw] = (try? getAllDraws(context: context)) ?? [] //the ?? [] unwraps the response of [LotteryDraw]?
-        print("size: ", response.count)
     }
     
-    func getDataFromAPI(game: String, context: ModelContext){
+    
+    func convertStringsToDate(drawDates: [String]) -> [Date] {
+        var convertedDates: [Date] = []
+        
+        let months: [String: String] = [
+            "JAN": "01", "FEB": "02", "MAR": "03", "APR": "04", "MAY": "05", "JUN": "06", "JUL": "07", "AUG": "08", "SEP": "09", "OCT": "10", "NOV": "11", "DEC": "12"
+        ]
+        
+        let formatter = DateFormatter()
+        formatter.dateFormat = "yyyy-MM-dd"
+        
+        for date in drawDates{
+            let parts = date.split(separator: " ")
+            let stringDay = parts[1]
+            let stringMonth = parts[0]
+            
+            let month = months[stringMonth.uppercased()]!
+            
+            let currentYear = Calendar.current.component(.year, from: Date())
+            
+            if Int(month)! >= Calendar.current.component(.month, from: Date()) {
+                let stringDate = "\(currentYear)-\(month)-\(stringDay)" //puts components into yyyy-MM-dd format
+                guard let convertedDate = formatter.date(from: stringDate) else {
+                    print("Could not parse date: \(stringDate) correctly")
+                    return []
+                }
+                convertedDates.append(convertedDate)
+            }else{
+                let stringDate = "\(currentYear-1)-\(month)-\(stringDay)" //puts components into yyyy-MM-dd format
+                guard let convertedDate = formatter.date(from: stringDate) else {
+                    print("Could not parse date: \(stringDate) correctly")
+                    return []
+                }
+                convertedDates.append(convertedDate)
+            }
+        }
+        
+        return convertedDates.sorted()
+    }
+    
+    func getDataFromAPI(game: String, context: ModelContext) async{
         /// Updates/gets the data from the API and adds it into the phone's database
         Task {
             do {
