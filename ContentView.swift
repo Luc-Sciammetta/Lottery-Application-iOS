@@ -129,26 +129,34 @@ struct ContentView: View {
             let parts = date.split(separator: " ")
             let stringDay = parts[1]
             let stringMonth = parts[0]
+            let stringYear = parts[2]
             
             let month = months[stringMonth.uppercased()]!
             
-            let currentYear = Calendar.current.component(.year, from: Date())
+//            let currentYear = Calendar.current.component(.year, from: Date())
+//            
+//            if Int(month)! >= Calendar.current.component(.month, from: Date()) {
+//                let stringDate = "\(currentYear-1)-\(month)-\(stringDay)" //puts components into yyyy-MM-dd format
+//                guard let convertedDate = formatter.date(from: stringDate) else {
+//                    print("Could not parse date: \(stringDate) correctly")
+//                    return []
+//                }
+//                convertedDates.append(convertedDate)
+//            }else{
+//                let stringDate = "\(currentYear)-\(month)-\(stringDay)" //puts components into yyyy-MM-dd format
+//                guard let convertedDate = formatter.date(from: stringDate) else {
+//                    print("Could not parse date: \(stringDate) correctly")
+//                    return []
+//                }
+//                convertedDates.append(convertedDate)
+//            }
             
-            if Int(month)! >= Calendar.current.component(.month, from: Date()) {
-                let stringDate = "\(currentYear-1)-\(month)-\(stringDay)" //puts components into yyyy-MM-dd format
-                guard let convertedDate = formatter.date(from: stringDate) else {
-                    print("Could not parse date: \(stringDate) correctly")
-                    return []
-                }
-                convertedDates.append(convertedDate)
-            }else{
-                let stringDate = "\(currentYear)-\(month)-\(stringDay)" //puts components into yyyy-MM-dd format
-                guard let convertedDate = formatter.date(from: stringDate) else {
-                    print("Could not parse date: \(stringDate) correctly")
-                    return []
-                }
-                convertedDates.append(convertedDate)
+            let stringDate = "\(stringYear)-\(month)-\(stringDay)" //puts components into yyyy-MM-dd format
+            guard let convertedDate = formatter.date(from: stringDate) else {
+                print("Could not parse date: \(stringDate) correctly")
+                return []
             }
+            convertedDates.append(convertedDate)
         }
         
         let uniqueDates = Array(Set(convertedDates))  //remove duplicate dates
