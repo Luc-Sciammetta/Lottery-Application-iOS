@@ -156,6 +156,7 @@ func getDraws(game: String, context: ModelContext) throws -> [LotteryDraw] {
     return try context.fetch(descriptor)
 }
 
+@MainActor
 func getAllDraws(context: ModelContext) throws -> [LotteryDraw] {
     /// Gets all lottery draws from the database
     let descriptor = FetchDescriptor<LotteryDraw>()

@@ -31,69 +31,86 @@ func getInfoFromText(from lines: [String], game: String, mainTolerance: Int, spe
     //mainTolerance: the amount of allowed missing numbers from the foundNumbers to be considered a "draw"
     //specialTolerance: the amount of allowed missing numbers from the specialNumbers to be considered part of a "special"
     
-    
     var possibleDrawDates: [String] = []
     var possibleDrawNumbers: [[String]] = []
     var possibleDrawSpecial: [[String]] = []
-    
-    let _ = ["JAN", "FEB", "MAR", "APR", "MAY", "JUN",
-                  "JUL", "AUG", "SEP", "OCT", "NOV", "DEC",
-                  "JANUARY", "FEBRUARY", "MARCH", "APRIL", "JUNE",
-                  "JULY", "AUGUST", "SEPTEMBER", "OCTOBER", "NOVEMBER", "DECEMBER"]
-    
-    //"JAN 15" or "JANURARY 15"
-    let perfectPatternDayAfter = /\b(JAN|FEB|MAR|APR|MAY|JUN|JUL|AUG|SEP|OCT|NOV|DEC)\s+(\d{1,2})(\s|$)\b/ //could include this later: |JANUARY|FEBRUARY|MARCH|APRIL|JUNE|JULY|AUGUST|SEPTEMBER|OCTOBER|NOVEMBER|DECEMBER
+
+    //"JAN 15 25" or "JAN 15 2025" or "JAN15 25" etc.
+    let perfectPatternDayAfter = /\b(JAN|FEB|MAR|APR|MAY|JUN|JUL|AUG|SEP|OCT|NOV|DEC)\s*(\d{1,2})\s+(\d{2,4})\b/
         .ignoresCase()
-    //"15 JAN"
-    let perfectPatternDayBefore = /\b(\d{1,2})\s+(JAN|FEB|MAR|APR|MAY|JUN|JUL|AUG|SEP|OCT|NOV|DEC)(\s|$)\b/ //could include this later: |JANUARY|FEBRUARY|MARCH|APRIL|JUNE|JULY|AUGUST|SEPTEMBER|OCTOBER|NOVEMBER|DECEMBER
+    //"15 JAN 25" or "15 JAN 2025"
+    let perfectPatternDayBefore = /\b(\d{1,2})\s*(JAN|FEB|MAR|APR|MAY|JUN|JUL|AUG|SEP|OCT|NOV|DEC)\s+(\d{2,4})\b/
         .ignoresCase()
-    //"JAN15"
-    let fusedPattern = /\b(JAN|FEB|MAR|APR|MAY|JUN|JUL|AUG|SEP|OCT|NOV|DEC)(\d{1,2})(\s|$)\b/
+    //"JAN1725" or "DEC172025" (fully fused)
+    let fusedPattern = /\b(JAN|FEB|MAR|APR|MAY|JUN|JUL|AUG|SEP|OCT|NOV|DEC)(\d{1,2})(\d{2}|\d{4})\b/
         .ignoresCase()
+    //Misread: letter replacing a digit in day/year e.g. "JANI725"
     let misreadPattern = /\b(JAN|FEB|MAR|APR|MAY|JUN|JUL|AUG|SEP|OCT|NOV|DEC)[IOQT\]](\d)/
         .ignoresCase()
-    
-    //get the drawDates
+
+    //Helper: normalise a 2- or 4-digit year string → "2025" style
+    func normaliseYear(_ raw: String) -> String {
+        if raw.count == 4 { return raw }
+        let suffix = Int(raw) ?? 0
+        return suffix < 50 ? "20\(String(format: "%02d", suffix))" : "19\(String(format: "%02d", suffix))"
+    }
+
     for line in lines {
         print(line)
-        var foundPerfectMatch = false //so that we dont get both perfect matches (i.e. "FRI 15 JAN 20", we want "15 JAN" not "JAN 20")
+        var foundPerfectMatch = false
+
+        //"17 DEC 25" / "17DEC25" / "17 DEC 2025" / "17DEC2025"
         if let match = try? perfectPatternDayBefore.firstMatch(in: line) {
-            let month = String(String(match.output.2).prefix(3)).uppercased() //gets the first group (the month), trims it to the first 3 characters, in uppercase
-            let day = String(match.output.1)
-            possibleDrawDates.append(month + " " + day)
+            let day   = String(match.output.1)
+            let month = String(String(match.output.2).prefix(3)).uppercased()
+            let year  = normaliseYear(String(match.output.3))
+            possibleDrawDates.append(month + " " + day + " " + year)
             foundPerfectMatch = true
         }
+
+        //"DEC 17 25" / "DEC17 25" / "DEC 17 2025" / "DEC17 2025"
         if !foundPerfectMatch, let match = try? perfectPatternDayAfter.firstMatch(in: line) {
-            let month = String(String(match.output.1).prefix(3)).uppercased() //gets the first group (the month), trims it to the first 3 characters, in uppercase
-            let day = String(match.output.2)
-            possibleDrawDates.append(month + " " + day)
+            let month = String(String(match.output.1).prefix(3)).uppercased()
+            let day   = String(match.output.2)
+            let year  = normaliseYear(String(match.output.3))
+            possibleDrawDates.append(month + " " + day + " " + year)
+            foundPerfectMatch = true
         }
-        
-        if let match = try? misreadPattern.firstMatch(in: line){
+
+        //"DEC1725" / "DEC172025"
+        if !foundPerfectMatch, let match = try? fusedPattern.firstMatch(in: line) {
             let month = String(match.output.1).uppercased()
-            var day = String(match.output.2)
-            
-            let letter = line[match.range] //gets the full matched substring
-                .dropFirst(3) //drops the first 3 characters
-                .prefix(1) //gets the first character
+            let day   = String(match.output.2)
+            let year  = normaliseYear(String(match.output.3))
+            possibleDrawDates.append(month + " " + day + " " + year)
+        }
+
+        //Misread pass — runs independently of the above
+        if let match = try? misreadPattern.firstMatch(in: line) {
+            let month = String(match.output.1).uppercased()
+            var day   = String(match.output.2)
+
+            let matchedSubstring = line[match.range]
+            let letter = matchedSubstring
+                .dropFirst(3)
+                .prefix(1)
                 .uppercased()
-            
-            switch letter{
-                case "I", "T":
-                    day = "1" + day
-                case "Q", "O":
-                    day = "0" + day
-                default:
-                    break
+
+            switch letter {
+            case "I", "T": day = "1" + day
+            case "Q", "O": day = "0" + day
+            default: break
             }
-            
-            possibleDrawDates.append(month + " " + day)
-        }
-        
-        if let match = try? fusedPattern.firstMatch(in: line){
-            let month = String(match.output.1).uppercased()
-            let day = String(match.output.2)
-            possibleDrawDates.append(month + " " + day)
+
+            //Try to grab a year that follows the misread day
+            let afterMisread = String(line[match.range.upperBound...])
+            let yearCapture  = /^\s*(\d{2,4})\b/.ignoresCase()
+            var year = ""
+            if let yMatch = try? yearCapture.firstMatch(in: afterMisread) {
+                year = " " + normaliseYear(String(yMatch.output.1))
+            }
+
+            possibleDrawDates.append(month + " " + day + " " + year)
         }
     }
     

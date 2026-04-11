@@ -87,6 +87,8 @@ struct ContentView: View {
             let drawNumbers = result.drawNumbers
             let drawSpecial = result.drawSpecial
             
+            print(drawDates)
+            
             //convert [[String]] numbers to [[Int]] by flattening and parsing
             let formattedNumbers: [[Int]] = drawNumbers.map { $0.compactMap { Int($0) } }
             let formattedSpecials: [[Int]] = drawSpecial.map { $0.compactMap { Int($0) } }
