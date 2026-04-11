@@ -76,13 +76,10 @@ struct ContentView: View {
         /// Processes the uploaded/captured image
 
         //try? clearDatabase(context: context)
-        
-//        await getDataFromAPI(game: "powerball", context: context)
-    
-        let response: [LotteryDraw] = (try? getAllDraws(context: context)) ?? [] //the ?? [] unwraps the response of [LotteryDraw]?
-        print("dataset size: ", response.count)
-        
         let game = "powerball"
+        //TODO: Logic to determine whether we should get data or not
+//        await getDataFromAPI(game: game, context: context)
+        
         
         recognizeText(from: image) { lines in
             let result = getInfoFromText(from: lines, game: game, mainTolerance: 2, specialTolerance: 0)
@@ -100,8 +97,16 @@ struct ContentView: View {
             print("formatted numbers: ", formattedNumbers)
             print("formatted special: ", formattedSpecials)
             
-            let wins = checkForWin(game: game, drawNumbers: formattedNumbers, drawSpecials: formattedSpecials, drawDates: formattedDates, context: context)
-            print("wins: ", wins)
+            
+//            let response: [LotteryDraw] = (try? getAllDraws(context: context)) ?? [] //the ?? [] unwraps the response of [LotteryDraw]?
+//            print(response.count)
+//            print("dataset size: ", response.count)
+            
+            
+            DispatchQueue.main.async {
+                let wins = checkForWin(game: game, drawNumbers: formattedNumbers, drawSpecials: formattedSpecials, drawDates: formattedDates, context: context)
+                print("wins: ", wins)
+            }
         }
         
         
@@ -128,14 +133,14 @@ struct ContentView: View {
             let currentYear = Calendar.current.component(.year, from: Date())
             
             if Int(month)! >= Calendar.current.component(.month, from: Date()) {
-                let stringDate = "\(currentYear)-\(month)-\(stringDay)" //puts components into yyyy-MM-dd format
+                let stringDate = "\(currentYear-1)-\(month)-\(stringDay)" //puts components into yyyy-MM-dd format
                 guard let convertedDate = formatter.date(from: stringDate) else {
                     print("Could not parse date: \(stringDate) correctly")
                     return []
                 }
                 convertedDates.append(convertedDate)
             }else{
-                let stringDate = "\(currentYear-1)-\(month)-\(stringDay)" //puts components into yyyy-MM-dd format
+                let stringDate = "\(currentYear)-\(month)-\(stringDay)" //puts components into yyyy-MM-dd format
                 guard let convertedDate = formatter.date(from: stringDate) else {
                     print("Could not parse date: \(stringDate) correctly")
                     return []
@@ -144,7 +149,9 @@ struct ContentView: View {
             }
         }
         
-        return convertedDates.sorted()
+        let uniqueDates = Array(Set(convertedDates))  //remove duplicate dates
+        
+        return uniqueDates.sorted()
     }
     
     func getDataFromAPI(game: String, context: ModelContext) async{

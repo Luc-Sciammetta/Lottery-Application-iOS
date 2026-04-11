@@ -42,6 +42,7 @@ let lowestToWin: [String: [[Int]]] = [ //list containing the matchedNumbers and 
     "euromillions": [[5,2],[5,1],[5,0],[4,2],[4,1],[3,2],[4,0],[2,2],[3,1],[3,0],[1,2],[2,1],[2,0]]
 ]
 
+@MainActor
 func fetchFromAPIandStore(game: String, firstDate: String = "2025-01-01", secondDate: String = "2030-01-01", context: ModelContext) async throws {
     /// Gets data from the API and stores the data into the phone's database.
 
@@ -113,12 +114,14 @@ func fetchFromAPIandStore(game: String, firstDate: String = "2025-01-01", second
     try context.save() //save it
 }
 
+@MainActor
 func clearDatabase(context: ModelContext) throws {
     /// Clears the phone's database of lottery draws
     try context.delete(model: LotteryDraw.self)
     try context.save()
 }
 
+@MainActor
 func getDraw(game: String, drawingDate: Date, context: ModelContext) throws -> [LotteryDraw]? {
     /// Gets a specific lottery draw if given a game and a drawing date
     let descriptor = FetchDescriptor<LotteryDraw>(
@@ -132,6 +135,7 @@ func getDraw(game: String, drawingDate: Date, context: ModelContext) throws -> [
     return results
 }
 
+@MainActor
 func getDrawsBetweenDates(game: String, drawDates: [Date], context: ModelContext) throws -> [LotteryDraw]? {
     /// Gets all lottery draws based on a given game for a given range of dates
     let start = drawDates[0]
@@ -143,6 +147,7 @@ func getDrawsBetweenDates(game: String, drawDates: [Date], context: ModelContext
     return try context.fetch(descriptor)
 }
 
+@MainActor
 func getDraws(game: String, context: ModelContext) throws -> [LotteryDraw] {
     /// Gets all lottery draws based on a given game
     let descriptor = FetchDescriptor<LotteryDraw>(
@@ -157,9 +162,10 @@ func getAllDraws(context: ModelContext) throws -> [LotteryDraw] {
     return try context.fetch(descriptor)
 }
 
+@MainActor
 func checkForWin(game: String, drawNumbers: [[Int]], drawSpecials: [[Int]], drawDates: [Date]? = nil, context: ModelContext) -> [WinDict] {
     var draws: [LotteryDraw] = []
-    if drawDates == nil {
+    if let drawDates, drawDates.count == 0 {
         do {
             draws = try getDraws(game: game, context: context)
         } catch {
