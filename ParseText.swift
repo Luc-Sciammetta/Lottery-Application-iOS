@@ -267,7 +267,7 @@ func getInfoFromText(from lines: [String], game: String, mainTolerance: Int, spe
     
     var index = 0
     var candidatesAdded: [Int] = [] //holds the candidates that we have added to drawNumbers/Special every pass we go through twoDigitsUnused
-    while missingCounts.count != 0 {
+    while missingCounts.count != 0 && twoDigitsUnused != []{
         let candidate = twoDigitsUnused[index]
         var removed = false //whether we have removed an item from the twoDigitusUnused (meaning we found a spot for it)
         

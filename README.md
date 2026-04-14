@@ -16,11 +16,14 @@ This is based off of the previous code written in Python in the Lottery-Applicat
   - Mega Millions
   - Lotto America
   - EuroMillions
-- Can get the date of the lottery draw from VNRecognizeText results
+- Can get the date and numbers of the lottery draw from VNRecognizeText results
+- Can check the found numbers from the ticket against the database, determining if the ticket is a winner or not
 
 ## Known Issues
 - The OCR for extracting numbers is not reliable, so not all lottery numbers/dates will be extracted from the text.
 
 ## Things to do:
 - Have OCR Read text if there are letters in the way idk.
-- Have the text parser extract the year of the drawing
+- Optimize when the app looks online to get the most recent lottery draw, to limit the number of times it needs to go online
+- Some image classifier to determine what lottery ticket is being scanned
+- Nice user interface

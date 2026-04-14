@@ -124,15 +124,11 @@ func clearDatabase(context: ModelContext) throws {
 @MainActor
 func getDraw(game: String, drawingDate: Date, context: ModelContext) throws -> [LotteryDraw]? {
     /// Gets a specific lottery draw if given a game and a drawing date
-    let descriptor = FetchDescriptor<LotteryDraw>(
-        predicate: #Predicate { $0.game == game && $0.drawingDate == drawingDate }
+    var descriptor = FetchDescriptor<LotteryDraw>(
+        predicate: #Predicate { $0.game == game && $0.drawingDate == drawingDate },
     )
-    let results = try context.fetch(descriptor)
-    if results.count != 1 {
-        //TODO: DO THIS CASE
-    }
-    
-    return results
+    descriptor.fetchLimit = 1
+    return try context.fetch(descriptor)
 }
 
 @MainActor
@@ -232,4 +228,15 @@ func checkMatch(draw: LotteryDraw, numbers: [Int], specials: [Int]) -> WinDict {
         matchedSpecials: matchedSpecials,
         numberOfMatchedSpecials: matchedSpecials.count
     )
+}
+
+@MainActor
+
+func getLastEntry(game: String, context: ModelContext) throws -> LotteryDraw? {
+    var descriptor = FetchDescriptor<LotteryDraw>(
+        predicate: #Predicate { $0.game == game },
+        sortBy: [SortDescriptor(\.drawingDate, order: .reverse)]
+    )
+    descriptor.fetchLimit = 1
+    return try context.fetch(descriptor).first
 }

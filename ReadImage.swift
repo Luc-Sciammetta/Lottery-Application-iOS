@@ -36,3 +36,12 @@ func recognizeText(from image: UIImage, completion: @escaping ([String]) -> Void
         try? handler.perform([request])
     }
 }
+
+/// Async version of recognizeText that can be awaited
+func recognizeText(from image: UIImage) async -> [String] {
+    await withCheckedContinuation { continuation in
+        recognizeText(from: image) { lines in
+            continuation.resume(returning: lines)
+        }
+    }
+}

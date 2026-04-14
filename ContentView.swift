@@ -65,53 +65,60 @@ struct ContentView: View {
         .onChange(of: selectedImage) {
             if let selectedImage = selectedImage {
                 Task {
-                    await processImage(from: selectedImage)
+                    let wins = await processImage(from: selectedImage)
                 }
             }
         }
     }
     
     
-    func processImage(from image: UIImage) async{
+    @MainActor
+    func processImage(from image: UIImage) async -> [WinDict] {
         /// Processes the uploaded/captured image
 
-        //try? clearDatabase(context: context)
+//        try? clearDatabase(context: context)
         let game = "powerball"
-        //TODO: Logic to determine whether we should get data or not
-//        await getDataFromAPI(game: game, context: context)
         
+        print("DATASET SIZE BEFORE: ", (try? getAllDraws(context: context).count) ?? -1)
         
-        recognizeText(from: image) { lines in
-            let result = getInfoFromText(from: lines, game: game, mainTolerance: 2, specialTolerance: 0)
-            let drawDates = result.drawDates
-            let drawNumbers = result.drawNumbers
-            let drawSpecial = result.drawSpecial
-            
-            print(drawDates)
-            
-            //convert [[String]] numbers to [[Int]] by flattening and parsing
-            let formattedNumbers: [[Int]] = drawNumbers.map { $0.compactMap { Int($0) } }
-            let formattedSpecials: [[Int]] = drawSpecial.map { $0.compactMap { Int($0) } }
-            
-            let formattedDates: [Date] = convertStringsToDate(drawDates: drawDates)
-            
-            print("formatted dates: ", formattedDates)
-            print("formatted numbers: ", formattedNumbers)
-            print("formatted special: ", formattedSpecials)
-            
-            
-//            let response: [LotteryDraw] = (try? getAllDraws(context: context)) ?? [] //the ?? [] unwraps the response of [LotteryDraw]?
-//            print(response.count)
-//            print("dataset size: ", response.count)
-            
-            
-            DispatchQueue.main.async {
-                let wins = checkForWin(game: game, drawNumbers: formattedNumbers, drawSpecials: formattedSpecials, drawDates: formattedDates, context: context)
-                print("wins: ", wins)
+        let currentDate: Date = Date()
+        let lastEntry = try? getLastEntry(game: game, context: context)
+        
+        if let drawingDate = lastEntry?.drawingDate, currentDate.timeIntervalSince(drawingDate) > 3 * 24 * 60 * 60 { //TODO: find whether the value should be 2 or 3 days
+            print("updating data from api")
+            await getDataFromAPI(game: game, context: context) //get more recent data
+        }else{
+            if lastEntry == nil{ //we have nothing in the database on that game
+                print("getting data to populate database")
+                await getDataFromAPI(game: game, context: context) //get more recent data
             }
         }
         
+        print("DATASET SIZE AFTER: ", (try? getAllDraws(context: context).count) ?? -1)
+
+        let lines = await recognizeText(from: image)
         
+        let result = getInfoFromText(from: lines, game: game, mainTolerance: 2, specialTolerance: 0)
+        let drawDates = result.drawDates
+        let drawNumbers = result.drawNumbers
+        let drawSpecial = result.drawSpecial
+        
+        print(drawDates)
+        
+        //convert [[String]] numbers to [[Int]] by flattening and parsing
+        let formattedNumbers: [[Int]] = drawNumbers.map { $0.compactMap { Int($0) } }
+        let formattedSpecials: [[Int]] = drawSpecial.map { $0.compactMap { Int($0) } }
+        
+        let formattedDates: [Date] = convertStringsToDate(drawDates: drawDates)
+        
+        print("formatted dates: ", formattedDates)
+        print("formatted numbers: ", formattedNumbers)
+        print("formatted special: ", formattedSpecials)
+        
+        let wins = checkForWin(game: game, drawNumbers: formattedNumbers, drawSpecials: formattedSpecials, drawDates: formattedDates, context: context)
+        print("wins: ", wins)
+        
+        return wins
     }
     
     
@@ -166,12 +173,10 @@ struct ContentView: View {
     
     func getDataFromAPI(game: String, context: ModelContext) async{
         /// Updates/gets the data from the API and adds it into the phone's database
-        Task {
-            do {
-                try await fetchFromAPIandStore(game: game, context: context)
-            } catch {
-                print("Error fetching from API: \(error)")
-            }
+        do {
+            try await fetchFromAPIandStore(game: game, context: context)
+        } catch {
+            print("Error fetching from API: \(error)")
         }
     }
 }
