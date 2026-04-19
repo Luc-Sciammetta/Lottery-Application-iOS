@@ -56,7 +56,7 @@ func getInfoFromText(from lines: [String], game: String, mainTolerance: Int, spe
     }
 
     for line in lines {
-        print(line)
+//        print(line)
         var foundPerfectMatch = false
 
         //"17 DEC 25" / "17DEC25" / "17 DEC 2025" / "17DEC2025"
@@ -124,7 +124,7 @@ func getInfoFromText(from lines: [String], game: String, mainTolerance: Int, spe
         let isDateLine = (try? perfectPatternDayBefore.firstMatch(in: line)) != nil || (try? perfectPatternDayAfter.firstMatch(in: line)) != nil || (try? fusedPattern.firstMatch(in: line)) != nil || (try? misreadPattern.firstMatch(in: line)) != nil
             
         if isDateLine {
-            print("skipping date line: \(line)")
+//            print("skipping date line: \(line)")
             continue
         }
         
@@ -137,16 +137,16 @@ func getInfoFromText(from lines: [String], game: String, mainTolerance: Int, spe
         var specialSwitch = false
         
         for token in tokens {
-            print("token: ", token)
+//            print("token: ", token)
             if LOTTERY_CONFIGS[game]?.special_labels.contains(String(token).uppercased()) == true {
-                print("meh")
+//                print("meh")
                 //now any numbers we see in the line are special numbers
                 specialSwitch = true
                 continue
             }
             
             if let match = try? parenNumberPattern.firstMatch(in: String(token)){
-                print("()((())")
+//                print("()((())")
                 foundSpecials.append(String(match.output.dropFirst().dropLast())) //drop the () from the match to get just the number
                 specialSwitch = true //we found a special number, so we can assume the rest in the row are special numbers
                 continue //so that we dont get to the drawNumberPattern match if-statement
@@ -155,11 +155,11 @@ func getInfoFromText(from lines: [String], game: String, mainTolerance: Int, spe
             if let match = try? drawNumberPattern.firstMatch(in: String(token)){
                 if !specialSwitch && foundNumbers.count < LOTTERY_CONFIGS[game]!.main { //have the foundNumbers.count so that we dont add greater than the amount of allowed numbers in a draw
                     //we want to add to foundNumbers
-                    print("Hello: ", token)
+//                    print("Hello: ", token)
                     foundNumbers.append(String(match.output))
                 }else{
                     //probs found a special
-                    print("hhehehehe: ", token)
+//                    print("hhehehehe: ", token)
                     foundSpecials.append(String(match.output))
                 }
                 continue
@@ -168,13 +168,13 @@ func getInfoFromText(from lines: [String], game: String, mainTolerance: Int, spe
         }
 
         if foundNumbers.count >= LOTTERY_CONFIGS[game]!.main - mainTolerance { //we found mainNumbers
-            print("MAIN")
+//            print("MAIN")
             possibleDrawNumbers.append(foundNumbers)
             foundNumbers = []
             
             //always pair with a special entry, even if empty
             if foundSpecials.count >= LOTTERY_CONFIGS[game]!.special - specialTolerance { //we found specialNumbers
-                print("SPECIAL")
+//                print("SPECIAL")
                 possibleDrawSpecial.append(foundSpecials)
                 foundSpecials = []
             } else {
@@ -192,7 +192,7 @@ func getInfoFromText(from lines: [String], game: String, mainTolerance: Int, spe
             
             //only append specials if we didn't already handle them above
             if foundSpecials.count >= LOTTERY_CONFIGS[game]!.special - specialTolerance {
-                print("SPECIAL")
+//                print("SPECIAL")
                 possibleDrawSpecial.append(foundSpecials)
                 foundSpecials = []
                 
@@ -205,21 +205,21 @@ func getInfoFromText(from lines: [String], game: String, mainTolerance: Int, spe
             }
         }
         
-        print("found numbers", foundNumbers)
-        print("found specials", foundSpecials)
+//        print("found numbers", foundNumbers)
+//        print("found specials", foundSpecials)
     }
     
     if possibleDrawNumbers.count == 0 && possibleDrawSpecial.count == 0 { //worst case we didnt find a single thing
         //we add empty lists to both, so we can see if we can fill any slots with unused numbers
         //we can assume that there is one lottery draw on a lottery ticket (a zero-draw ticket would be wierd)
-        print("COULD NOT FIND ANYTHING, SO ATTEMPTING TO FILL EVERYTHING")
+//        print("COULD NOT FIND ANYTHING, SO ATTEMPTING TO FILL EVERYTHING")
         possibleDrawNumbers.append([])
         possibleDrawSpecial.append([])
     }
     
     
     //code to assume the placement of unused digits
-    print("UNUSED: ", twoDigitsUnused)
+//    print("UNUSED: ", twoDigitsUnused)
     
     var possibleIndicies: [Int] = [] //the index of the entry in either drawNumbers/drawSpecial
     var possibleLists: [Int] = [] //1: draw numbers, 2: draw special
@@ -258,9 +258,9 @@ func getInfoFromText(from lines: [String], game: String, mainTolerance: Int, spe
     possibleIndicies = zipped.map { $0.0 }
     possibleLists = zipped.map { $0.1 }
     
-    print("POSSIBLE INDICIES: ", possibleIndicies)
-    print("POSSIBLE LISTS: ", possibleLists)
-    print("MISSING COUNTS: ", missingCounts)
+//    print("POSSIBLE INDICIES: ", possibleIndicies)
+//    print("POSSIBLE LISTS: ", possibleLists)
+//    print("MISSING COUNTS: ", missingCounts)
     
     let gameMainRange = LOTTERY_NUMBER_RANGES[game]?.mainRange
     let gameSpecialRange = LOTTERY_NUMBER_RANGES[game]?.specialRange
@@ -274,19 +274,19 @@ func getInfoFromText(from lines: [String], game: String, mainTolerance: Int, spe
         //see if the candidate fits the main/special values
         let fitsMain = gameMainRange!.contains(candidate)
         let fitsSpecial = gameSpecialRange!.contains(candidate)
-        print("Candidate: ", candidate)
-        print("FM: ", fitsMain)
-        print("FS: ", fitsSpecial)
+//        print("Candidate: ", candidate)
+//        print("FM: ", fitsMain)
+//        print("FS: ", fitsSpecial)
         
         if fitsMain && fitsSpecial {
-            print("fits both")
+//            print("fits both")
             //we can only determine where it goes if there is only one open spot in both drawNumbers and drawSpecials (we know this is index 0)
             if possibleLists.count == 1 { //meaning there is only one missing item
-                print("only one missing item")
+//                print("only one missing item")
                 //it goes there
                 if possibleLists[0] == 1 { //goes in drawNumbers
                     if !possibleDrawNumbers[possibleIndicies[0]].contains(String(format: "%02d", candidate)) { //to make sure we aren't adding a value we already have
-                        print("goes in drawnumbers")
+//                        print("goes in drawnumbers")
                         possibleDrawNumbers[possibleIndicies[0]].append(String(candidate))
                         twoDigitsUnused.remove(at: index)
                         candidatesAdded.append(candidate)
@@ -294,7 +294,7 @@ func getInfoFromText(from lines: [String], game: String, mainTolerance: Int, spe
                     }
                 }else{ //goes in specialNumbers
                     if !possibleDrawSpecial[possibleIndicies[0]].contains(String(format: "%02d", candidate)) { //to make sure we aren't adding a value we already have
-                        print("goes in drawspecial")
+//                        print("goes in drawspecial")
                         possibleDrawSpecial[possibleIndicies[0]].append(String(candidate))
                         twoDigitsUnused.remove(at: index)
                         candidatesAdded.append(candidate)
@@ -304,35 +304,35 @@ func getInfoFromText(from lines: [String], game: String, mainTolerance: Int, spe
                 
                 missingCounts[0] -= 1 //decrement the number of missing places by 1 (since we just filled one)
                 if missingCounts[0] == 0 { //then we are done
-                    print("Missing counts is 0 when there is only one missing location, so breaking out of the loop")
+//                    print("Missing counts is 0 when there is only one missing location, so breaking out of the loop")
                     break
                 }
             }else{
-                print("can't determine where value goes")
+//                print("can't determine where value goes")
                 //we cannot determine where the number goes, so we ignore it.
             }
         }
         
         if fitsMain && !fitsSpecial {
-            print("fits one")
+//            print("fits one")
             //we have to loop through to see if we have any open spots in the drawNumbers.
             //if we see multiple open spots in the drawNumbers, we can't determine which location it goes in, so we ignore it.
             let count = possibleLists.filter { $0 == 1 }.count //the number of sets of drawNumbers that have missing values
-            print("COUNT: ", count)
+//            print("COUNT: ", count)
             
             
             if count == 1 { //meaning we have only one open spot in drawNumbers
                 for (i, (idx, lst, _)) in zip3(possibleIndicies, possibleLists, missingCounts).enumerated(){
                     if lst == 1{ //we have found that open spot in drawNumbers
                         if !possibleDrawNumbers[idx].contains(String(format: "%02d", candidate)) { //to make sure we aren't adding a value we already have
-                            print("found misisng drawnumbers loc")
+//                            print("found misisng drawnumbers loc")
                             possibleDrawNumbers[idx].append(String(candidate))
                             twoDigitsUnused.remove(at: index)
                             candidatesAdded.append(candidate)
                             removed = true
                             missingCounts[i] -= 1 //decrease the number of missing values in that group of drawNumbers by 1
                             if missingCounts[i] == 0{
-                                print("missing ctns = 0")
+//                                print("missing ctns = 0")
                                 possibleLists.remove(at: i)
                                 possibleIndicies.remove(at: i)
                                 missingCounts.remove(at: i)
@@ -341,13 +341,13 @@ func getInfoFromText(from lines: [String], game: String, mainTolerance: Int, spe
                     }
                 }
             }else{
-                print("Cant determine where number goes")
+//                print("Cant determine where number goes")
                 //we can't determine where it can go.
             }
         }
         
         if !fitsMain && fitsSpecial {
-            print("UH OH spagehtti-oh")
+//            print("UH OH spagehtti-oh")
             //impossible rn so no implementation
         }
         

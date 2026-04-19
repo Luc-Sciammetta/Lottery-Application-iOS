@@ -77,7 +77,7 @@ struct ContentView: View {
         /// Processes the uploaded/captured image
 
 //        try? clearDatabase(context: context)
-        let game = "powerball"
+        let game = classifyImage(image: image);
         
         print("DATASET SIZE BEFORE: ", (try? getAllDraws(context: context).count) ?? -1)
         
