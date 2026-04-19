@@ -6,8 +6,11 @@ struct ContentView: View {
     @State private var selectedItem: PhotosPickerItem? //holds the selected photo from the image library
     @State private var selectedImage: UIImage? //holds the loaded image from the image library
     @State private var showingCamera = false
+    @State private var wins: [WinDict] = []
     
     @Environment(\.modelContext) private var context //context for saving the lottery data
+    
+    private let allGames = ["powerball", "megamillions", "lottoamerica", "euromillions"]
     
     var body: some View {
         VStack {
@@ -22,6 +25,15 @@ struct ContentView: View {
                 Text("No Image Selected")
                     .foregroundStyle(Color.gray) //changes the color of the text
                     .padding()
+            }
+            
+            if !wins.isEmpty {
+                ForEach(wins.indices, id: \.self) { index in
+                    let win = wins[index]
+                    Text("Matched \(win.numberOfMatchedNumbers) numbers, \(win.numberOfMatchedSpecials) special")
+                }
+            }else{
+                Text("Sorry, didn't win anything :(")
             }
             
             Button(action: {
@@ -61,11 +73,15 @@ struct ContentView: View {
             }
         }
         .padding()
+        .task {
+//            try? clearDatabase(context: context)
+            await refreshDataIfNeeded()
+        }
         //call the recognize text function to read the text off of the image
         .onChange(of: selectedImage) {
             if let selectedImage = selectedImage {
                 Task {
-                    let wins = await processImage(from: selectedImage)
+                    wins = await processImage(from: selectedImage)
                 }
             }
         }
@@ -73,28 +89,30 @@ struct ContentView: View {
     
     
     @MainActor
-    func processImage(from image: UIImage) async -> [WinDict] {
-        /// Processes the uploaded/captured image
-
-//        try? clearDatabase(context: context)
-        let game = classifyImage(image: image);
-        
+    func refreshDataIfNeeded() async { //refreshes app database in the background when the app loads
         print("DATASET SIZE BEFORE: ", (try? getAllDraws(context: context).count) ?? -1)
         
-        let currentDate: Date = Date()
-        let lastEntry = try? getLastEntry(game: game, context: context)
-        
-        if let drawingDate = lastEntry?.drawingDate, currentDate.timeIntervalSince(drawingDate) > 3 * 24 * 60 * 60 { //TODO: find whether the value should be 2 or 3 days
-            print("updating data from api")
-            await getDataFromAPI(game: game, context: context) //get more recent data
-        }else{
-            if lastEntry == nil{ //we have nothing in the database on that game
-                print("getting data to populate database")
-                await getDataFromAPI(game: game, context: context) //get more recent data
+        let currentDate = Date()
+        for game in allGames {
+            let lastEntry = try? getLastEntry(game: game, context: context)
+            
+            if let drawingDate = lastEntry?.drawingDate, currentDate.timeIntervalSince(drawingDate) > 3 * 24 * 60 * 60 { //TODO: find whether the value should be 2 or 3 days
+                print("updating data from api for \(game)")
+                await getDataFromAPI(game: game, context: context)
+            } else if lastEntry == nil { //we have nothing in the database for that game
+                print("getting data to populate database for \(game)")
+                await getDataFromAPI(game: game, context: context)
             }
         }
         
         print("DATASET SIZE AFTER: ", (try? getAllDraws(context: context).count) ?? -1)
+    }
+    
+    @MainActor
+    func processImage(from image: UIImage) async -> [WinDict] {
+        /// Processes the uploaded/captured image
+
+        let game = classifyImage(image: image);
 
         let lines = await recognizeText(from: image)
         

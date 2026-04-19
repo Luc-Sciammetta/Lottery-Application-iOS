@@ -53,12 +53,16 @@ func fetchFromAPIandStore(game: String, firstDate: String = "2025-01-01", second
     
     guard let json = try JSONSerialization.jsonObject(with: data) as? [String: Any] else {
         print("Error getting data, invalid JSON response.")
+        print("Raw response: \(String(data: data, encoding: .utf8) ?? "nil")")
         return
     }
+    
+    print("API response keys for \(game): \(json.keys.sorted())")
     
     //convert the json data into an array
     guard let drawingsData = json["data"] as? [[String: Any]] else {
         print("Error: 'data' field is missing or not an array.")
+        print("Full API response for \(game): \(json)")
         return
     }
     //print(drawingsData)
