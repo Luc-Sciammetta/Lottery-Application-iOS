@@ -27,7 +27,7 @@ class LotteryDraw { //class structure to hold the specific lottery drawing
     }
 }
 
-struct WinDict{
+struct WinDict: Hashable {
     let drawDate: Date
     let matchedNumbers: [Int]
     let numberOfMatchedNumbers: Int

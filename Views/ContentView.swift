@@ -2,11 +2,24 @@ import SwiftUI
 import SwiftData
 import PhotosUI
 
+struct ParsedTicket: Hashable{
+    var game: String
+    var drawDates: [Date]
+    var drawNumbers: [[Int]]
+    var drawSpecials: [[Int]]
+}
+
 struct ContentView: View {
+    @Binding var navigationPath: NavigationPath
+    
     @State private var selectedItem: PhotosPickerItem? //holds the selected photo from the image library
     @State private var selectedImage: UIImage? //holds the loaded image from the image library
     @State private var showingCamera = false
-    @State private var wins: [WinDict] = []
+    
+    @State private var gettingDataFromAPI = false
+    
+    @State private var parsedTicket: ParsedTicket? = nil
+    @State private var navigateToConfirmView = false
     
     @Environment(\.modelContext) private var context //context for saving the lottery data
     
@@ -25,15 +38,6 @@ struct ContentView: View {
                 Text("No Image Selected")
                     .foregroundStyle(Color.gray) //changes the color of the text
                     .padding()
-            }
-            
-            if !wins.isEmpty {
-                ForEach(wins.indices, id: \.self) { index in
-                    let win = wins[index]
-                    Text("Matched \(win.numberOfMatchedNumbers) numbers, \(win.numberOfMatchedSpecials) special")
-                }
-            }else{
-                Text("Sorry, didn't win anything :(")
             }
             
             Button(action: {
@@ -75,15 +79,35 @@ struct ContentView: View {
         .padding()
         .task {
 //            try? clearDatabase(context: context)
-            await refreshDataIfNeeded()
+//            await refreshDataIfNeeded()
+            gettingDataFromAPI = false
         }
+        .overlay {
+            if gettingDataFromAPI {
+                VStack {
+                    ProgressView()
+                    Text("Getting data from API...")
+                        .foregroundStyle(.gray)
+                        .padding(.top, 8)
+                }
+                .padding()
+                .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 12))
+            }
+        }
+        
         //call the recognize text function to read the text off of the image
         .onChange(of: selectedImage) {
             if let selectedImage = selectedImage {
                 Task {
-                    wins = await processImage(from: selectedImage)
+                    let ticket = await processImage(from: selectedImage)
+                    parsedTicket = ticket
+                    navigationPath.append(ticket)
                 }
             }
+        }
+        //navigates to the Confirm View when the ticket has been parsed
+        .navigationDestination(for: ParsedTicket.self) { ticket in
+            ConfirmView(ticket: ticket, navPath: $navigationPath)
         }
     }
     
@@ -98,9 +122,11 @@ struct ContentView: View {
             
             if let drawingDate = lastEntry?.drawingDate, currentDate.timeIntervalSince(drawingDate) > 3 * 24 * 60 * 60 { //TODO: find whether the value should be 2 or 3 days
                 print("updating data from api for \(game)")
+                gettingDataFromAPI = true
                 await getDataFromAPI(game: game, context: context)
             } else if lastEntry == nil { //we have nothing in the database for that game
                 print("getting data to populate database for \(game)")
+                gettingDataFromAPI = true
                 await getDataFromAPI(game: game, context: context)
             }
         }
@@ -109,9 +135,8 @@ struct ContentView: View {
     }
     
     @MainActor
-    func processImage(from image: UIImage) async -> [WinDict] {
+    func processImage(from image: UIImage) async -> ParsedTicket {
         /// Processes the uploaded/captured image
-
         let game = classifyImage(image: image);
 
         let lines = await recognizeText(from: image)
@@ -133,10 +158,7 @@ struct ContentView: View {
         print("formatted numbers: ", formattedNumbers)
         print("formatted special: ", formattedSpecials)
         
-        let wins = checkForWin(game: game, drawNumbers: formattedNumbers, drawSpecials: formattedSpecials, drawDates: formattedDates, context: context)
-        print("wins: ", wins)
-        
-        return wins
+        return ParsedTicket(game: game, drawDates: formattedDates, drawNumbers: formattedNumbers, drawSpecials: formattedSpecials)
     }
     
     
@@ -150,31 +172,25 @@ struct ContentView: View {
         let formatter = DateFormatter()
         formatter.dateFormat = "yyyy-MM-dd"
         
+        let currentYear = Calendar.current.component(.year, from: Date())
+        
         for date in drawDates{
             let parts = date.split(separator: " ")
             let stringDay = parts[1]
             let stringMonth = parts[0]
-            let stringYear = parts[2]
             
             let month = months[stringMonth.uppercased()]!
             
-//            let currentYear = Calendar.current.component(.year, from: Date())
-//            
-//            if Int(month)! >= Calendar.current.component(.month, from: Date()) {
-//                let stringDate = "\(currentYear-1)-\(month)-\(stringDay)" //puts components into yyyy-MM-dd format
-//                guard let convertedDate = formatter.date(from: stringDate) else {
-//                    print("Could not parse date: \(stringDate) correctly")
-//                    return []
-//                }
-//                convertedDates.append(convertedDate)
-//            }else{
-//                let stringDate = "\(currentYear)-\(month)-\(stringDay)" //puts components into yyyy-MM-dd format
-//                guard let convertedDate = formatter.date(from: stringDate) else {
-//                    print("Could not parse date: \(stringDate) correctly")
-//                    return []
-//                }
-//                convertedDates.append(convertedDate)
-//            }
+            var stringYear: String
+            if parts.count == 3{
+                stringYear = String(parts[2])
+            }else{
+                if Int(month)! > Calendar.current.component(.month, from: Date()) {
+                    stringYear = "\(currentYear-1)"
+                }else{
+                    stringYear = "\(currentYear)"
+                }
+            }
             
             let stringDate = "\(stringYear)-\(month)-\(stringDay)" //puts components into yyyy-MM-dd format
             guard let convertedDate = formatter.date(from: stringDate) else {
@@ -200,5 +216,6 @@ struct ContentView: View {
 }
 
 #Preview {
-    ContentView()
+    @Previewable @State var path = NavigationPath()
+    ContentView(navigationPath: $path)
 }
