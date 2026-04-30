@@ -29,8 +29,11 @@ class LotteryDraw { //class structure to hold the specific lottery drawing
 
 struct WinDict: Hashable {
     let drawDate: Date
+    let playNumber: Int
+    let drawNumbers: [Int]
     let matchedNumbers: [Int]
     let numberOfMatchedNumbers: Int
+    let drawSpecials: [Int]
     let matchedSpecials: [Int]
     let numberOfMatchedSpecials: Int
 }
@@ -206,7 +209,7 @@ func checkForWin(game: String, drawNumbers: [[Int]], drawSpecials: [[Int]], draw
     for draw in draws {
         for (index, numbers) in drawNumbers.enumerated() {
             let specials = index < drawSpecials.count ? drawSpecials[index] : []
-            let winDict: WinDict = checkMatch(draw: draw, numbers: numbers, specials: specials)
+            let winDict: WinDict = checkMatch(draw: draw, numbers: numbers, specials: specials, index: index)
             let group: [Int] = [winDict.numberOfMatchedNumbers, winDict.numberOfMatchedSpecials]
             if matchesNeeded?.contains(group) == true {
                 //we have won something (maybe)
@@ -218,7 +221,7 @@ func checkForWin(game: String, drawNumbers: [[Int]], drawSpecials: [[Int]], draw
     return potentialWins
 }
 
-func checkMatch(draw: LotteryDraw, numbers: [Int], specials: [Int]) -> WinDict {
+func checkMatch(draw: LotteryDraw, numbers: [Int], specials: [Int], index: Int) -> WinDict {
     let drawNumbers = [draw.ball1, draw.ball2, draw.ball3, draw.ball4, draw.ball5]
     let drawSpecials = [draw.special1] + (draw.special2.map { [$0] } ?? []) //if special2 is not nil, then .map unwraps it and adds it to the array, else nothing happens
     
@@ -227,8 +230,11 @@ func checkMatch(draw: LotteryDraw, numbers: [Int], specials: [Int]) -> WinDict {
     
     return WinDict(
         drawDate: draw.drawingDate,
+        playNumber: index,
+        drawNumbers: numbers,
         matchedNumbers: matchedNumbers,
         numberOfMatchedNumbers: matchedNumbers.count,
+        drawSpecials: specials,
         matchedSpecials: matchedSpecials,
         numberOfMatchedSpecials: matchedSpecials.count
     )

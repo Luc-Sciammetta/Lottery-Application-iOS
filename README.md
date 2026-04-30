@@ -28,3 +28,4 @@ This is based off of the previous code written in Python in the Lottery-Applicat
 - Optimize when the app looks online to get the most recent lottery draw, to limit the number of times it needs to go online
 - Nice user interface
 - Have there be a check for when you change the lottery game in confirm view, so that you dont get numbers not in the valid range
+- Have the user be able to add/remove numbers from their lottery draws
