@@ -365,6 +365,24 @@ func getInfoFromText(from lines: [String], game: String, mainTolerance: Int, spe
         }
     }
     
+    if possibleDrawDates.count == 0 && possibleDrawNumbers[0] == [] && possibleDrawSpecial[0] == []{ //we have nothing
+        return (possibleDrawDates, possibleDrawNumbers, possibleDrawSpecial)
+    }
+    
+    //if we have values, but not enough for a draw (say 3 in drawNumbers and 0 in specials, populate those with "-1" to signify there is nothing there"
+    for i in 0..<possibleDrawNumbers.count{
+        let drawLen = possibleDrawNumbers[i].count
+        for _ in drawLen..<LOTTERY_CONFIGS[game]!.main{
+            possibleDrawNumbers[i].append("-1")
+        }
+    }
+    
+    for i in 0..<possibleDrawSpecial.count{
+        let specialLen = possibleDrawSpecial[i].count
+        for _ in specialLen..<LOTTERY_CONFIGS[game]!.special{
+            possibleDrawSpecial[i].append("-1")
+        }
+    }
     
     return (possibleDrawDates, possibleDrawNumbers, possibleDrawSpecial)
 }

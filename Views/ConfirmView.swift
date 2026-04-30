@@ -23,6 +23,9 @@ struct ConfirmView: View {
     @State private var newSelectedNumber: Int = 0
     
     @State private var showingTooManyDatesAlert: Bool = false
+    @State private var numbersInAnInvalidRangeAlert: Bool = false
+    @State private var tooManyDrawsAlert: Bool = false
+    @State private var unfilledNumbersAlert: Bool = false
     
     
     let gameNames: [String: String] = [
@@ -32,7 +35,7 @@ struct ConfirmView: View {
         "euromillions": "EuroMillions",
     ]
     
-    let playLetters: [Int: String] = [1: "A", 2: "B", 3: "C", 4: "D", 5: "E", 6: "F", 7: "G", 8: "H", 9: "I", 10: "J", 11: "K", 12: "L"]
+    let playLetters: [Int: String] = [1: "A", 2: "B", 3: "C", 4: "D", 5: "E", 6: "F", 7: "G", 8: "H", 9: "I", 10: "J", 11: "K", 12: "L", 13: "M", 14: "N", 15: "O", 16: "P", 17: "Q", 18: "R", 19: "S", 20: "T", 21: "U", 22: "V", 23: "W", 24: "X", 25: "Y", 26: "Z"]
     
     let gameSpecialNames: [String: String] = [
         "Powerball": "Powerball",
@@ -45,10 +48,47 @@ struct ConfirmView: View {
         "euromillions": "Lucky Stars",
     ]
     
+    let LOTTERY_NUMBER_RANGES: [String: (mainRange: ClosedRange<Int>, specialRange: ClosedRange<Int>)] = [
+        "powerball":    (1...69, 1...26),
+        "megamillions": (1...70, 1...24),
+        "lottoamerica": (1...52, 1...10),
+        "euromillions": (1...50, 1...12)
+    ]
+    
     init(ticket: ParsedTicket, navPath: Binding<NavigationPath>) {
         self.ticket = ticket
         self._navPath = navPath
         self._selectedGame = State(initialValue: ticket.game)
+    }
+    
+    func checkTicketForValidNumberRange() -> Bool{
+        let numberRange = LOTTERY_NUMBER_RANGES[ticket.game]
+        //check the drawNumbers
+        for draw in ticket.drawNumbers{
+            for number in draw {
+                if !numberRange!.mainRange.contains(number) {
+                    return false
+                }
+            }
+        }
+        
+        //check the drawSpecials
+        for draw in ticket.drawSpecials{
+            for number in draw {
+                if !numberRange!.specialRange.contains(number) {
+                    return false
+                }
+            }
+        }
+        
+        return true
+    }
+    
+    func checkForNotFilledNumbers() -> Bool {
+        for draw in ticket.drawNumbers + ticket.drawSpecials {
+            if draw.contains(-1) { return false }
+        }
+        return true
     }
     
     var currentPickerRange: [Int] {
@@ -202,11 +242,16 @@ struct ConfirmView: View {
             Spacer()
             
             Button{
-                ticket.drawNumbers.append([1, 2, 3, 4, 5])
-                if selectedGame == "euromillions"{
-                    ticket.drawSpecials.append([1, 2])
+                if ticket.drawNumbers.count == 26 {
+                    //cannot add any more (no more letters in the alphabet)
+                    tooManyDrawsAlert = true
                 }else{
-                    ticket.drawSpecials.append([1])
+                    ticket.drawNumbers.append([1, 2, 3, 4, 5])
+                    if selectedGame == "euromillions"{
+                        ticket.drawSpecials.append([1, 2])
+                    }else{
+                        ticket.drawSpecials.append([1])
+                    }
                 }
             } label: {
                 Image(systemName: "plus.app")
@@ -231,17 +276,31 @@ struct ConfirmView: View {
             
             HStack (spacing: 8){
                 ForEach(Array(numbers.enumerated()), id: \.offset) { idx, ball in
-                    Text("\(ball)")
-                        .frame(width: 44, height: 44)
-                        .background(Color(.systemGray5))
-                        .clipShape(Circle())
-                        .onTapGesture {
-                            editingSpecial = false
-                            selectedDrawIndex = index
-                            selectedNumberIndex = idx
-                            showingNumberPicker = true
-                            newSelectedNumber = ball
-                        }
+                    if ball == -1{ //for balls that were not found in the text parsing
+                        Text("-")
+                            .frame(width: 44, height: 44)
+                            .background(Color(.systemGray5))
+                            .clipShape(Circle())
+                            .onTapGesture {
+                                editingSpecial = false
+                                selectedDrawIndex = index
+                                selectedNumberIndex = idx
+                                showingNumberPicker = true
+                            }
+                    }else{
+                        Text("\(ball)")
+                            .frame(width: 44, height: 44)
+                            .background(Color(.systemGray5))
+                            .clipShape(Circle())
+                            .onTapGesture {
+                                editingSpecial = false
+                                selectedDrawIndex = index
+                                selectedNumberIndex = idx
+                                showingNumberPicker = true
+                                newSelectedNumber = ball
+                            }
+                    }
+                    
                 }
             }
             
@@ -252,17 +311,31 @@ struct ConfirmView: View {
             let specials = index < ticket.drawSpecials.count ? ticket.drawSpecials[index] : []
             HStack (spacing: 8){
                 ForEach(Array(specials.enumerated()), id: \.offset) { idx, ball in
-                    Text("\(ball)")
-                        .frame(width: 44, height: 44)
-                        .overlay(Circle().stroke(Color.orange, lineWidth: 2))
-                        .clipShape(Circle())
-                        .onTapGesture {
-                            editingSpecial = true
-                            selectedDrawIndex = index
-                            selectedNumberIndex = idx
-                            showingNumberPicker = true
-                            newSelectedNumber = ball
-                        }
+                    if ball == -1{
+                        Text("-")
+                            .frame(width: 44, height: 44)
+                            .overlay(Circle().stroke(Color.orange, lineWidth: 2))
+                            .clipShape(Circle())
+                            .onTapGesture {
+                                editingSpecial = true
+                                selectedDrawIndex = index
+                                selectedNumberIndex = idx
+                                showingNumberPicker = true
+                            }
+                    }else{
+                        Text("\(ball)")
+                            .frame(width: 44, height: 44)
+                            .overlay(Circle().stroke(Color.orange, lineWidth: 2))
+                            .clipShape(Circle())
+                            .onTapGesture {
+                                editingSpecial = true
+                                selectedDrawIndex = index
+                                selectedNumberIndex = idx
+                                showingNumberPicker = true
+                                newSelectedNumber = ball
+                            }
+                    }
+                    
                 }
             }
         }
@@ -285,9 +358,15 @@ struct ConfirmView: View {
     private var checkTicketButton: some View {
         Button("Check Ticket"){
             Task {
-                wins = checkForWin(game: selectedGame, drawNumbers: ticket.drawNumbers, drawSpecials: ticket.drawSpecials, drawDates: ticket.drawDates, context: context)
-                print("wins: ", wins)
-                navPath.append(wins)
+                if !checkForNotFilledNumbers(){
+                    unfilledNumbersAlert = true
+                }else if !checkTicketForValidNumberRange() {
+                    numbersInAnInvalidRangeAlert = true
+                }else{
+                    wins = checkForWin(game: selectedGame, drawNumbers: ticket.drawNumbers, drawSpecials: ticket.drawSpecials, drawDates: ticket.drawDates, context: context)
+                    print("wins: ", wins)
+                    navPath.append(wins)
+                }
             }
         }
         .foregroundStyle(Color(.white))
@@ -295,6 +374,9 @@ struct ConfirmView: View {
         .padding()
         .background(Color(.black))
         .clipShape(RoundedRectangle(cornerRadius: 12))
+        .bold()
+        .buttonStyle(.plain)
+        .padding(.horizontal, 20)
         .buttonStyle(BlackButtonStyle())
     }
 
@@ -369,59 +451,92 @@ struct ConfirmView: View {
     // MARK: - Body
 
     var body: some View {
-        ScrollView{
-            VStack (alignment: .center, spacing: 12) {
-                dateSection
-                
-                Spacer()
-                
-                drawNumbersSection
-                
-                checkTicketButton
-            }
-            .navigationTitle("Confirm Numbers")
-            .navigationBarTitleDisplayMode(.inline)
-            .navigationDestination(for: [WinDict].self) { wins in
-                ResultsView(wins: wins, ticket: ticket, navPath: $navPath)
-            }
-            .toolbar {
-                ToolbarItem(placement: .topBarTrailing){
-                    Menu {
-                        ForEach(["powerball", "megamillions", "euromillions", "lottoamerica"], id: \.self) { game in
-                            Button {
-                                selectedGame = game
-                            } label: {
-                                Text(gameNames[game] ?? game)
-                                    .padding(.horizontal, 10)
-                                    .foregroundStyle(Color(.black))
-                            }
-                        }
-                    } label: {
-                        HStack (spacing: 4) {
-                            Text(gameNames[selectedGame] ?? selectedGame)
-                                .font(.subheadline)
-                                .foregroundStyle(Color(.secondaryLabel))
-                            Image(systemName: "chevron.down")
-                                            .font(.caption2)
-                                            .foregroundStyle(Color(.secondaryLabel))
-                        }
-                        .padding(.horizontal, 10)
-                        .padding(.vertical, 4)
+        VStack{
+            ScrollView{
+                VStack (alignment: .center, spacing: 12) {
+                    dateSection
+                    
+                    Spacer()
+                    
+                    drawNumbersSection
+                    
+                    if ticket.drawDates.isEmpty && ticket.drawNumbers.count == 1 && ticket.drawNumbers[0].isEmpty && ticket.drawSpecials.count == 1 && ticket.drawSpecials[0].isEmpty {
+                        Spacer()
+                        Divider()
+                        Spacer()
+                        Text("Are you sure this is a ticket?")
+                            .font(.headline)
+                            .fontWeight(.medium)
+                            .foregroundStyle(.secondary)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .bold()
+                        
                     }
                 }
+                .toolbar {
+                    ToolbarItem(placement: .topBarTrailing){
+                        Menu {
+                            ForEach(["powerball", "megamillions", "euromillions", "lottoamerica"], id: \.self) { game in
+                                Button {
+                                    selectedGame = game
+                                } label: {
+                                    Text(gameNames[game] ?? game)
+                                        .padding(.horizontal, 10)
+                                        .foregroundStyle(Color(.black))
+                                }
+                            }
+                        } label: {
+                            HStack (spacing: 4) {
+                                Text(gameNames[selectedGame] ?? selectedGame)
+                                    .font(.subheadline)
+                                    .foregroundStyle(Color(.black))
+                                Image(systemName: "chevron.down")
+                                                .font(.caption2)
+                                                .foregroundStyle(Color(.secondaryLabel))
+                            }
+                            .padding(.horizontal, 10)
+                            .padding(.vertical, 4)
+                        }
+                    }
+                }
+                .padding(.horizontal)
+                .sheet(isPresented: $showingDatePicker){
+                    datePickerSheet
+                }
+                .sheet(isPresented: $showingNumberPicker){
+                    numberPickerSheet
+                }
             }
-            .padding(.horizontal)
-            .sheet(isPresented: $showingDatePicker){
-                datePickerSheet
-            }
-            .sheet(isPresented: $showingNumberPicker){
-                numberPickerSheet
-            }
-            .alert("Unable to add date", isPresented: $showingTooManyDatesAlert) {
-                Button("OK", role: .cancel) { }
-            } message: {
-                Text("You are about to add too many dates to your lottery draw. Please remove a date before adding another.")
-            }
+            
+            checkTicketButton
+        }
+        .navigationTitle("Confirm Numbers")
+        .navigationBarTitleDisplayMode(.inline)
+        .navigationDestination(for: [WinDict].self) { wins in
+            ResultsView(wins: wins, ticket: ticket, navPath: $navPath)
+        }
+        .onChange(of: selectedGame) {
+            ticket.game = selectedGame
+        }
+        .alert("Unable to add date", isPresented: $showingTooManyDatesAlert) {
+            Button("OK", role: .cancel) { }
+        } message: {
+            Text("You are about to add too many dates to your lottery draw. Please remove a date before adding another.")
+        }
+        .alert("Numbers in an invalid range", isPresented: $numbersInAnInvalidRangeAlert) {
+            Button("OK", role: .cancel) { }
+        } message: {
+            Text("Some of your numbers are outside the valid range for this game. Please update your numbers or select a different game.")
+        }
+        .alert("Unable to add draw", isPresented: $tooManyDrawsAlert) {
+            Button("OK", role: .cancel) { }
+        } message: {
+            Text("You have too many draws. Please delete a draw before creating a new one.")
+        }
+        .alert("Unfilled numbers", isPresented: $unfilledNumbersAlert) {
+            Button("OK", role: .cancel) { }
+        } message: {
+            Text("Some draws have unfilled numbers. Please fill them in before checking your ticket.")
         }
     }
 }

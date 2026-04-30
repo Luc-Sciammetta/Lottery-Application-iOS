@@ -20,7 +20,7 @@ let gameSpecialNames: [String: String] = [
     "euromillions": "Lucky Stars",
 ]
 
-let playLetters: [Int: String] = [1: "A", 2: "B", 3: "C", 4: "D", 5: "E", 6: "F", 7: "G", 8: "H", 9: "I", 10: "J", 11: "K", 12: "L"]
+let playLetters: [Int: String] = [0: "A", 1: "B", 2: "C", 3: "D", 4: "E", 5: "F", 6: "G", 7: "H", 8: "I", 9: "J", 10: "K", 11: "L", 12: "M", 13: "N", 14: "O", 15: "P", 16: "Q", 17: "R", 18: "S", 19: "T", 20: "U", 21: "V", 22: "W", 23: "X", 24: "Y", 25: "Z"]
 
 struct ResultsView: View {
     var wins: [WinDict]
@@ -32,33 +32,14 @@ struct ResultsView: View {
     
     @State private var selectedImage: UIImage?
     @State private var parsedTicket: ParsedTicket? = nil
-    @State private var showCamera = false
+    @State private var showCamera: Bool = false
     
-    struct BlackButtonStyle: ButtonStyle {
-        func makeBody(configuration: Configuration) -> some View {
-            configuration.label
-                .scaleEffect(configuration.isPressed ? 0.97 : 1.0)
-                .brightness(configuration.isPressed ? -0.1 : 0) // darkens when pressed
-                .animation(.easeInOut(duration: 0.1), value: configuration.isPressed)
-        }
-    }
-
-    struct GrayButtonStyle: ButtonStyle {
-        func makeBody(configuration: Configuration) -> some View {
-            configuration.label
-                .scaleEffect(configuration.isPressed ? 0.97 : 1.0)
-                .opacity(configuration.isPressed ? 0.7 : 1.0)
-                .animation(.easeInOut(duration: 0.1), value: configuration.isPressed)
-        }
-    }
+    @State private var showHelpSheet: Bool = false
     
     @ViewBuilder
     private var checkAnotherButton : some View{
         Button("Check another ticket") {
             showCamera = true
-        }
-        .sheet(isPresented: $showCamera) {
-            CameraView(image: $selectedImage)
         }
         .foregroundStyle(Color(.white))
         .frame(maxWidth: .infinity)
@@ -74,15 +55,14 @@ struct ResultsView: View {
                 Task {
                     let ticket = await processImage(from: selectedImage)
                     parsedTicket = ticket
+                    // Pop to root first, then push the new ticket
+                    // This avoids duplicate navigationDestination declarations
+                    navPath.removeLast(navPath.count)
                     navPath.append(ticket)
+                    
                 }
             }
         }
-        //navigates to the Confirm View when the ticket has been parsed
-        .navigationDestination(for: ParsedTicket.self) { ticket in
-            ConfirmView(ticket: ticket, navPath: $navPath)
-        }
-        
     }
     
     @ViewBuilder
@@ -112,7 +92,7 @@ struct ResultsView: View {
     private func winCard(_ index: Int, _ win: WinDict) -> some View {
         VStack{
             HStack {
-                Text("Play " + (playLetters[index + 1] ?? "Unknown"))
+                Text("Play " + (playLetters[win.playNumber] ?? "Unknown"))
                     .font(.subheadline)
                     .fontWeight(.medium)
                     .foregroundStyle(.secondary)
@@ -138,7 +118,6 @@ struct ResultsView: View {
                         Text("\(ball)")
                             .frame(width: 44, height: 44)
                             .background(Color(.green))
-                            .overlay(Circle().stroke(Color.mint, lineWidth: 2))
                             .clipShape(Circle())
                     }else{
                         Text("\(ball)")
@@ -153,13 +132,12 @@ struct ResultsView: View {
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
             
-            let specials = index < ticket.drawSpecials.count ? ticket.drawSpecials[index] : []
             HStack (spacing: 8){
-                ForEach(Array(specials.enumerated()), id: \.offset) { idx, ball in
+                ForEach(Array(win.drawSpecials.enumerated()), id: \.offset) { idx, ball in
                     if win.matchedSpecials.contains(ball){
                         Text("\(ball)")
                             .frame(width: 44, height: 44)
-                            .overlay(Circle().stroke(Color.green, lineWidth: 2))
+                            .background(Color(.green))
                             .clipShape(Circle())
                     }else{
                         Text("\(ball)")
@@ -176,35 +154,90 @@ struct ResultsView: View {
         .clipShape(RoundedRectangle(cornerRadius: 12))
     }
     
+    @ViewBuilder
+    private var helpSheet : some View {
+        VStack (spacing: 20){
+            Text("Not sure about your results? Cross-check your ticket on the official lottery websites below.")
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
+                .multilineTextAlignment(.center)
+                .padding(.horizontal)
+            
+            Divider()
+                        
+            VStack(spacing: 16) {
+                Link("Powerball", destination: URL(string: "https://www.powerball.com")!)
+                Link("Mega Millions", destination: URL(string: "https://www.megamillions.com")!)
+                Link("Lotto America", destination: URL(string: "https://www.powerball.com/lotto-america")!)
+                Link("Euro Millions", destination: URL(string: "https://www.euro-millions.com")!)
+            }
+            .font(.body)
+            .foregroundStyle(.blue)
+        }
+        .padding(.top, 32)
+        .padding(.horizontal)
+        .presentationDetents([.height(300)])
+    }
+    
     var body: some View {
         VStack (alignment: .center, spacing: 12){
-            ScrollView{
-                VStack (alignment: .center, spacing: 12) {
-                    if wins.isEmpty{
-                        Spacer()
+            ZStack (alignment: .bottomTrailing){
+                ScrollView{
+                    VStack (alignment: .center, spacing: 12) {
+                        if ticket.drawDates.count == 0 && !ticket.drawNumbers.isEmpty && !ticket.drawSpecials.isEmpty && ticket.drawNumbers[0] != [] && ticket.drawSpecials[0] != []{ //then wins will contain all potential wins
+                            Text("No draw dates were entered, so all possible wins are shown. Check your ticket for the exact draw date(s).")
+                                .font(.headline)
+                                .fontWeight(.medium)
+                                .foregroundStyle(.secondary)
+                                .padding(.horizontal, 12)
+                            
+                            Spacer()
+                            Divider()
+                        }
                         
-                        Text("This ticket is not a winner")
-                            .font(.subheadline)
-                            .fontWeight(.medium)
-                            .foregroundStyle(.secondary)
-                    }else{
-                        winsCards
+                        if wins.isEmpty{
+                            Spacer()
+                            
+                            Text("This ticket is not a winner")
+                                .font(.subheadline)
+                                .fontWeight(.medium)
+                                .foregroundStyle(.red)
+                        }else{
+                            Text("⭐️ Congratulations! This ticket is a winner! ⭐️")
+                                .font(.subheadline)
+                                .fontWeight(.medium)
+                                .foregroundStyle(.green)
+                            
+                            winsCards
+                        }
                     }
+                    .padding(.horizontal)
                 }
-                .navigationTitle("Results")
-                .navigationBarTitleDisplayMode(.inline)
-                .toolbar {
-                    ToolbarItem(placement: .topBarTrailing){
-                        Text(gameNames[ticket.game] ?? ticket.game)
-                            .font(.subheadline)
-                            .foregroundStyle(Color(.secondaryLabel))
-                    }
+                .frame(maxHeight: .infinity)
+                
+                Button {
+                    showHelpSheet = true
+                } label: {
+                    Image(systemName: "questionmark.circle")
+                        .font(.system(size: 32))
                 }
+                .foregroundStyle(.secondary)
+                .padding(.horizontal, 20)
+                .buttonStyle(.plain)
             }
+            .frame(maxHeight: .infinity)
             
             checkAnotherButton
             goHome
         }
-        .navigationBarBackButtonHidden(false)
+        .navigationTitle("Results")
+        .navigationBarTitleDisplayMode(.inline)
+        .navigationBarBackButtonHidden(true)
+        .sheet(isPresented: $showCamera) {
+            CameraView(image: $selectedImage)
+        }
+        .sheet(isPresented: $showHelpSheet){
+            helpSheet
+        }
     }
 }

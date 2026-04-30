@@ -33,15 +33,24 @@ struct ContentView: View {
     @State private var selectedItem: PhotosPickerItem? //holds the selected photo from the image library
     @State private var selectedImage: UIImage? //holds the loaded image from the image library
     @State private var showingCamera = false
-    
-    @State private var gettingDataFromAPI = false
-    
+        
     @State private var parsedTicket: ParsedTicket? = nil
     @State private var navigateToConfirmView = false
+    
+    @State private var isProcessing = false
+    
+    @State private var hasRefreshedData: Bool = false
     
     @Environment(\.modelContext) private var context //context for saving the lottery data
     
     private let allGames = ["powerball", "megamillions", "lottoamerica", "euromillions"]
+    
+    let gameDraws: [String: [Int]] = [
+        "powerball": [2, 4, 7],
+        "megamillions": [3, 6],
+        "lottoamerica": [2, 4, 7],
+        "euromillions": [3, 6]
+    ]
     
     var body: some View {
         VStack{
@@ -71,13 +80,8 @@ struct ContentView: View {
                     }
                 }
                 .padding()
-                .task {
-        //            try? clearDatabase(context: context)
-        //            await refreshDataIfNeeded()
-                    gettingDataFromAPI = false
-                }
                 .overlay {
-                    if selectedImage != nil {
+                    if isProcessing {
                         VStack {
                             ProgressView()
                             Text("Extracting ticket information")
@@ -88,33 +92,17 @@ struct ContentView: View {
                         .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 12))
                     }
                 }
-                
-//                .overlay {
-//                    if gettingDataFromAPI {
-//                        VStack {
-//                            ProgressView()
-//                            Text("Getting data from API...")
-//                                .foregroundStyle(.gray)
-//                                .padding(.top, 8)
-//                        }
-//                        .padding()
-//                        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 12))
-//                    }
-//                }
-                
                 //call the recognize text function to read the text off of the image
                 .onChange(of: selectedImage) {
                     if let selectedImage = selectedImage {
+                        isProcessing = true
                         Task {
                             let ticket = await processImage(from: selectedImage)
                             parsedTicket = ticket
+                            isProcessing = false
                             navigationPath.append(ticket)
                         }
                     }
-                }
-                //navigates to the Confirm View when the ticket has been parsed
-                .navigationDestination(for: ParsedTicket.self) { ticket in
-                    ConfirmView(ticket: ticket, navPath: $navigationPath)
                 }
             }
             
@@ -170,29 +158,61 @@ struct ContentView: View {
         }
         .navigationTitle("Lottery Checker")
         .navigationBarTitleDisplayMode(.large)
+        //navigates to the Confirm View when the ticket has been parsed
+        .navigationDestination(for: ParsedTicket.self) { ticket in
+            ConfirmView(ticket: ticket, navPath: $navigationPath)
+        }
+        .onAppear {
+            selectedImage = nil
+            selectedItem = nil
+            if !hasRefreshedData {
+                hasRefreshedData = true
+                Task {
+                    await refreshDataIfNeeded()
+                }
+            }
+        }
     }
     
     
     @MainActor
-    func refreshDataIfNeeded() async { //refreshes app database in the background when the app loads
-        print("DATASET SIZE BEFORE: ", (try? getAllDraws(context: context).count) ?? -1)
-        
-        let currentDate = Date()
+    func refreshDataIfNeeded() async {
+        var calendar = Calendar.current
+        calendar.timeZone = TimeZone.current
+        let today = Date()
+        let yesterday = calendar.date(byAdding: .day, value: -1, to: today)! //we look at yesterday since in most cases, lottery draws are at night, and so if we check on the day of the draw, it hasn't happened yet, but we think it has.
+
         for game in allGames {
-            let lastEntry = try? getLastEntry(game: game, context: context)
+            //find the most recent draw date for this game
+            guard let drawDays = gameDraws[game] else { continue }
             
-            if let drawingDate = lastEntry?.drawingDate, currentDate.timeIntervalSince(drawingDate) > 3 * 24 * 60 * 60 { //TODO: find whether the value should be 2 or 3 days
-                print("updating data from api for \(game)")
-                gettingDataFromAPI = true
+            //work backwards from today to find the last draw day
+            var mostRecentDraw: Date? = nil
+            for daysBack in 0...6 {
+                let candidate = calendar.date(byAdding: .day, value: -daysBack, to: yesterday)!
+                let candidateWeekday = calendar.component(.weekday, from: candidate)
+                if drawDays.contains(candidateWeekday) {
+                    mostRecentDraw = calendar.startOfDay(for: candidate)
+                    break
+                }
+            }
+            
+            guard let expectedDate = mostRecentDraw else { continue }
+            
+            //check if we already have that draw in the database
+            let lastEntry = try? getLastEntry(game: game, context: context)
+            let lastDrawDay = lastEntry.map { calendar.startOfDay(for: $0.drawingDate) }
+            
+            print("last draw day: ", lastDrawDay as Any)
+            print("expected date: ", expectedDate)
+            
+            if lastDrawDay != expectedDate {
+                print("Missing draw for \(game) on \(expectedDate), fetching...")
                 await getDataFromAPI(game: game, context: context)
-            } else if lastEntry == nil { //we have nothing in the database for that game
-                print("getting data to populate database for \(game)")
-                gettingDataFromAPI = true
-                await getDataFromAPI(game: game, context: context)
+            } else {
+                print("Data for \(game) is up to date")
             }
         }
-        
-        print("DATASET SIZE AFTER: ", (try? getAllDraws(context: context).count) ?? -1)
     }
     
     func getDataFromAPI(game: String, context: ModelContext) async{

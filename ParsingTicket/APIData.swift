@@ -241,7 +241,6 @@ func checkMatch(draw: LotteryDraw, numbers: [Int], specials: [Int], index: Int) 
 }
 
 @MainActor
-
 func getLastEntry(game: String, context: ModelContext) throws -> LotteryDraw? {
     var descriptor = FetchDescriptor<LotteryDraw>(
         predicate: #Predicate { $0.game == game },
