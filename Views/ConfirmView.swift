@@ -9,6 +9,7 @@ struct ConfirmView: View {
     @Environment(\.modelContext) private var context
     
     @Binding var navPath: NavigationPath
+    @Binding var selectedImage: UIImage?
     
     @State private var selectedGame: String //holds the selected lottery game
     
@@ -62,10 +63,11 @@ struct ConfirmView: View {
     ]
     
     //init function
-    init(ticket: ParsedTicket, navPath: Binding<NavigationPath>) {
+    init(ticket: ParsedTicket, navPath: Binding<NavigationPath>, selectedImage: Binding<UIImage?>) {
         self.ticket = ticket
         self._navPath = navPath
         self._selectedGame = State(initialValue: ticket.game)
+        self._selectedImage = selectedImage
         
         //detects if we have a ticket or not
         let isEmpty = ticket.drawDates.isEmpty &&
@@ -410,7 +412,8 @@ struct ConfirmView: View {
                 }else{
                     wins = checkForWin(game: selectedGame, drawNumbers: ticket.drawNumbers, drawSpecials: ticket.drawSpecials, drawDates: ticket.drawDates, context: context)
                     print("wins: ", wins)
-                    navPath.append(wins)
+                    let result = WinResult(wins: wins, ticket: ticket)
+                    navPath.append(result)
                 }
             }
         } label: {
@@ -600,9 +603,6 @@ struct ConfirmView: View {
         }
         .navigationTitle("Confirm Numbers")
         .navigationBarTitleDisplayMode(.inline)
-        .navigationDestination(for: [WinDict].self) { wins in
-            ResultsView(wins: wins, ticket: ticket, navPath: $navPath)
-        }
         .onChange(of: selectedGame) {
             let old = ticket.game
             ticket.game = selectedGame

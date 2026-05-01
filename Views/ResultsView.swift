@@ -29,8 +29,8 @@ struct ResultsView: View {
     @Environment(\.dismiss) private var dismiss
     
     @Binding var navPath: NavigationPath
+    @Binding var selectedImage: UIImage?
     
-    @State private var selectedImage: UIImage?
     @State private var parsedTicket: ParsedTicket? = nil
     @State private var showCamera: Bool = false
     
@@ -52,18 +52,6 @@ struct ResultsView: View {
         .buttonStyle(.plain)
         .padding(.horizontal, 20)
         .buttonStyle(BlackButtonStyle())
-        .onChange(of: selectedImage) {
-            if let selectedImage = selectedImage {
-                Task {
-                    let ticket = await processImage(from: selectedImage)
-                    parsedTicket = ticket
-                    print("TICKEEEET:", ticket)
-                    navPath.removeLast(navPath.count)
-                    navPath.append(ticket)
-                    
-                }
-            }
-        }
     }
     
     @ViewBuilder

@@ -26,4 +26,3 @@ This is based off of the previous code written in Python in the Lottery-Applicat
 ## Things to do:
 - Have OCR Read text if there are letters in the way idk.
 - Have Night Mode work well
-- Bug with checking another ticket where the chosen ticket does not show

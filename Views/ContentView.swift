@@ -27,6 +27,11 @@ struct GrayButtonStyle: ButtonStyle {
     }
 }
 
+struct WinResult: Hashable {
+    var wins: [WinDict]
+    var ticket: ParsedTicket
+}
+
 struct ContentView: View {
     @Binding var navigationPath: NavigationPath
     
@@ -152,19 +157,20 @@ struct ContentView: View {
                 }
             }
         }
-        .onAppear {
-            selectedImage = nil
-            selectedItem = nil
-        }
         .navigationTitle("Lottery Checker")
         .navigationBarTitleDisplayMode(.large)
         //navigates to the Confirm View when the ticket has been parsed
         .navigationDestination(for: ParsedTicket.self) { ticket in
-            ConfirmView(ticket: ticket, navPath: $navigationPath)
+            ConfirmView(ticket: ticket, navPath: $navigationPath, selectedImage: $selectedImage)
+        }
+        .navigationDestination(for: WinResult.self) { result in
+            ResultsView(wins: result.wins, ticket: result.ticket, navPath: $navigationPath, selectedImage: $selectedImage)
         }
         .onAppear {
-            selectedImage = nil
-            selectedItem = nil
+            if navigationPath.count == 0 {
+                selectedImage = nil
+                selectedItem = nil
+            }
             if !hasRefreshedData {
                 hasRefreshedData = true
                 Task {
