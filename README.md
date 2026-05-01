@@ -19,10 +19,10 @@ This is based off of the previous code written in Python in the Lottery-Applicat
 - Can get the date and numbers of the lottery draw from VNRecognizeText results
 - Can check the found numbers from the ticket against the database, determining if the ticket is a winner or not
 - Classify the lottery game to determine what game the ticket is for
+- Litterally the whole UI/app
 
 ## Known Issues
 - The OCR for extracting numbers is not reliable, so not all lottery numbers/dates will be extracted from the text.
 
 ## Things to do:
 - Have OCR Read text if there are letters in the way idk.
-- Have Night Mode work well

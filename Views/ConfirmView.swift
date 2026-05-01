@@ -112,15 +112,19 @@ struct ConfirmView: View {
     
     func addSpecialBallsToDraws() {
         ///adds a ball to all specials
-        for index in 0..<ticket.drawSpecials.count {
-            ticket.drawSpecials[index].append(-1) //-1 is the value for an unfilled number
+        if ticket.drawNumbers != [[]]{
+            for index in 0..<ticket.drawSpecials.count {
+                ticket.drawSpecials[index].append(-1) //-1 is the value for an unfilled number
+            }
         }
     }
     
     func removeSpecialBallsFromDraws() {
         ///removes the last ball from all specials
-        for index in 0..<ticket.drawSpecials.count {
-            ticket.drawSpecials[index].removeLast() //remove the last special ball in the group
+        if ticket.drawSpecials != [[]]{
+            for index in 0..<ticket.drawSpecials.count {
+                ticket.drawSpecials[index].removeLast() //remove the last special ball in the group
+            }
         }
     }
     
@@ -177,6 +181,7 @@ struct ConfirmView: View {
                     Image(systemName: "plus.app")
                 }
                 .foregroundStyle(.secondary)
+                .buttonStyle(.plain)
             }
         } else {
             dateHeader
@@ -224,6 +229,7 @@ struct ConfirmView: View {
                 Image(systemName: "plus.app")
             }
             .foregroundStyle(.secondary)
+            .buttonStyle(.plain)
         }
     }
 
@@ -268,6 +274,7 @@ struct ConfirmView: View {
                 Image(systemName: "plus.app")
             }
             .foregroundStyle(.secondary)
+            .buttonStyle(.plain)
         }
     }
 
@@ -298,6 +305,7 @@ struct ConfirmView: View {
                 Image(systemName: "plus.app")
             }
             .foregroundStyle(.secondary)
+            .buttonStyle(.plain)
         }
     }
 
@@ -517,6 +525,7 @@ struct ConfirmView: View {
                     Image(systemName: "plus.app")
                 }
                 .foregroundStyle(.secondary)
+                .buttonStyle(.plain)
             }
         }
     }
@@ -527,7 +536,7 @@ struct ConfirmView: View {
         gameHeader
         
         if isTicket {
-            VStack {
+            VStack (spacing: 3){
                 ForEach(["powerball", "megamillions", "euromillions", "lottoamerica"], id: \.self) { game in
                     Button {
                         selectedGame = game
@@ -536,7 +545,8 @@ struct ConfirmView: View {
                             Text(gameNames[game] ?? game)
                                 .foregroundStyle(Color(.white))
                                 .frame(maxWidth: .infinity)
-                                .padding()
+                                .padding(.vertical, 6)
+                                .padding(.horizontal, 16)
                                 .background(Color(.black))
                                 .clipShape(RoundedRectangle(cornerRadius: 12))
                                 .bold()
@@ -544,7 +554,8 @@ struct ConfirmView: View {
                             Text(gameNames[game] ?? game)
                                 .foregroundStyle(Color(.black))
                                 .frame(maxWidth: .infinity)
-                                .padding()
+                                .padding(.vertical, 6)
+                                .padding(.horizontal, 16)
                                 .background(Color(.systemGray6))
                                 .clipShape(RoundedRectangle(cornerRadius: 12))
                                 .bold()

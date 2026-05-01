@@ -191,14 +191,17 @@ struct ResultsView: View {
                                 Spacer()
                                 
                                 Text("This ticket is not a winner")
-                                    .font(.subheadline)
+                                    .font(.title3)
                                     .fontWeight(.medium)
                                     .foregroundStyle(.secondary)
                             }else{
                                 Text("⭐️ Congratulations! This ticket is a winner! ⭐️")
-                                    .font(.subheadline)
+                                    .font(.title3)
                                     .fontWeight(.medium)
                                     .foregroundStyle(.secondary)
+                                
+                                Spacer()
+                                Divider()
                                 
                                 winsCards
                             }

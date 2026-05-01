@@ -9,6 +9,7 @@ struct Lottery_AppApp: App {
         WindowGroup {
             NavigationStack(path: $navigationPath) {
                 ContentView(navigationPath: $navigationPath)
+                    .preferredColorScheme(.light)
             }
         }
         .modelContainer(for: LotteryDraw.self)

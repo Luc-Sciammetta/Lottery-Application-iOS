@@ -47,6 +47,7 @@ struct ContentView: View {
     @State private var hasRefreshedData: Bool = false
     
     @Environment(\.modelContext) private var context //context for saving the lottery data
+    @Environment(\.colorScheme) var colorScheme //for dark mode/light mode
     
     private let allGames = ["powerball", "megamillions", "lottoamerica", "euromillions"]
     
@@ -61,6 +62,23 @@ struct ContentView: View {
         VStack{
             ScrollView {
                 VStack {
+                    HStack (spacing: 16){
+                        Text("ScanMyTicket")
+                            .font(.largeTitle)
+                            .fontWeight(.bold)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                        
+                        Spacer()
+                        
+                        Image("Logo trans1")
+                            .resizable()
+                            .scaledToFit()
+                            .frame(width: 100, height: 100)
+                            .padding(.trailing, 4)
+                    }
+                    
+                    
+                                        
                     Text("Scan a ticket to check for wins")
                         .font(.headline)
                         .fontWeight(.medium)
@@ -82,6 +100,8 @@ struct ContentView: View {
                         Text("No Image Selected")
                             .foregroundStyle(Color.secondary) //changes the color of the text
                             .padding()
+                            .font(.subheadline)
+                            .fontWeight(.medium)
                     }
                 }
                 .padding()
@@ -106,6 +126,7 @@ struct ContentView: View {
                             parsedTicket = ticket
                             isProcessing = false
                             navigationPath.append(ticket)
+                            self.selectedImage = nil
                         }
                     }
                 }
@@ -157,8 +178,6 @@ struct ContentView: View {
                 }
             }
         }
-        .navigationTitle("Lottery Checker")
-        .navigationBarTitleDisplayMode(.large)
         //navigates to the Confirm View when the ticket has been parsed
         .navigationDestination(for: ParsedTicket.self) { ticket in
             ConfirmView(ticket: ticket, navPath: $navigationPath, selectedImage: $selectedImage)
