@@ -27,6 +27,8 @@ struct ConfirmView: View {
     @State private var tooManyDrawsAlert: Bool = false
     @State private var unfilledNumbersAlert: Bool = false
     
+    @State private var isTicket: Bool = true
+    
     
     let gameNames: [String: String] = [
         "powerball": "Powerball",
@@ -59,6 +61,13 @@ struct ConfirmView: View {
         self.ticket = ticket
         self._navPath = navPath
         self._selectedGame = State(initialValue: ticket.game)
+        
+        let isEmpty = ticket.drawDates.isEmpty &&
+                ticket.drawNumbers.count == 1 &&
+                ticket.drawNumbers[0].isEmpty &&
+                ticket.drawSpecials.count == 1 &&
+                ticket.drawSpecials[0].isEmpty
+        self._isTicket = State(initialValue: !isEmpty)
     }
     
     func checkTicketForValidNumberRange() -> Bool{
@@ -356,7 +365,7 @@ struct ConfirmView: View {
     // MARK: - Check Ticket Button
 
     private var checkTicketButton: some View {
-        Button("Check Ticket"){
+        Button{
             Task {
                 if !checkForNotFilledNumbers(){
                     unfilledNumbersAlert = true
@@ -368,13 +377,15 @@ struct ConfirmView: View {
                     navPath.append(wins)
                 }
             }
+        } label: {
+            Text("Check Ticket")
+                .foregroundStyle(Color(.white))
+                .frame(maxWidth: .infinity)
+                .padding()
+                .background(Color(.black))
+                .clipShape(RoundedRectangle(cornerRadius: 12))
+                .bold()
         }
-        .foregroundStyle(Color(.white))
-        .frame(maxWidth: .infinity)
-        .padding()
-        .background(Color(.black))
-        .clipShape(RoundedRectangle(cornerRadius: 12))
-        .bold()
         .buttonStyle(.plain)
         .padding(.horizontal, 20)
         .buttonStyle(BlackButtonStyle())
@@ -447,6 +458,63 @@ struct ConfirmView: View {
         }
         .presentationDetents([.medium])
     }
+    
+    private var gameHeader : some View {
+        HStack {
+            Text("Lottery Game")
+                .font(.subheadline)
+                .fontWeight(.medium)
+                .foregroundStyle(.secondary)
+            
+            Spacer()
+            
+            if !isTicket {
+                Button{
+                    isTicket = true
+                } label: {
+                    Image(systemName: "plus.app")
+                }
+                .foregroundStyle(.secondary)
+            }
+        }
+    }
+    
+    @ViewBuilder
+    private var gameSection : some View {
+        gameHeader
+        
+        if isTicket {
+            VStack {
+                ForEach(["powerball", "megamillions", "euromillions", "lottoamerica"], id: \.self) { game in
+                    Button {
+                        selectedGame = game
+                    } label: {
+                        if selectedGame == game {
+                            Text(gameNames[game] ?? game)
+                                .foregroundStyle(Color(.white))
+                                .frame(maxWidth: .infinity)
+                                .padding()
+                                .background(Color(.black))
+                                .clipShape(RoundedRectangle(cornerRadius: 12))
+                                .bold()
+                        }else{
+                            Text(gameNames[game] ?? game)
+                                .foregroundStyle(Color(.black))
+                                .frame(maxWidth: .infinity)
+                                .padding()
+                                .background(Color(.systemGray6))
+                                .clipShape(RoundedRectangle(cornerRadius: 12))
+                                .bold()
+                        }
+                    }
+                }
+            }
+            .padding()
+            .frame(maxWidth: .infinity, alignment: .center)
+            .background(Color(.systemGray6))
+            .clipShape(RoundedRectangle(cornerRadius: 12))
+        }
+    }
 
     // MARK: - Body
 
@@ -454,13 +522,19 @@ struct ConfirmView: View {
         VStack{
             ScrollView{
                 VStack (alignment: .center, spacing: 12) {
-                    dateSection
-                    
                     Spacer()
                     
-                    drawNumbersSection
+                    gameSection
                     
-                    if ticket.drawDates.isEmpty && ticket.drawNumbers.count == 1 && ticket.drawNumbers[0].isEmpty && ticket.drawSpecials.count == 1 && ticket.drawSpecials[0].isEmpty {
+                    if isTicket {
+                        Spacer()
+                        
+                        dateSection
+                        
+                        Spacer()
+                        
+                        drawNumbersSection
+                    }else{
                         Spacer()
                         Divider()
                         Spacer()
@@ -470,33 +544,6 @@ struct ConfirmView: View {
                             .foregroundStyle(.secondary)
                             .frame(maxWidth: .infinity, alignment: .leading)
                             .bold()
-                        
-                    }
-                }
-                .toolbar {
-                    ToolbarItem(placement: .topBarTrailing){
-                        Menu {
-                            ForEach(["powerball", "megamillions", "euromillions", "lottoamerica"], id: \.self) { game in
-                                Button {
-                                    selectedGame = game
-                                } label: {
-                                    Text(gameNames[game] ?? game)
-                                        .padding(.horizontal, 10)
-                                        .foregroundStyle(Color(.black))
-                                }
-                            }
-                        } label: {
-                            HStack (spacing: 4) {
-                                Text(gameNames[selectedGame] ?? selectedGame)
-                                    .font(.subheadline)
-                                    .foregroundStyle(Color(.black))
-                                Image(systemName: "chevron.down")
-                                                .font(.caption2)
-                                                .foregroundStyle(Color(.secondaryLabel))
-                            }
-                            .padding(.horizontal, 10)
-                            .padding(.vertical, 4)
-                        }
                     }
                 }
                 .padding(.horizontal)

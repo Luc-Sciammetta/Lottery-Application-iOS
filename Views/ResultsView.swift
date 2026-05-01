@@ -38,15 +38,17 @@ struct ResultsView: View {
     
     @ViewBuilder
     private var checkAnotherButton : some View{
-        Button("Check another ticket") {
+        Button {
             showCamera = true
+        } label: {
+            Text("Check another ticket")
+                .foregroundStyle(Color(.white))
+                .frame(maxWidth: .infinity)
+                .padding()
+                .background(Color(.black))
+                .clipShape(RoundedRectangle(cornerRadius: 12))
+                .bold()
         }
-        .foregroundStyle(Color(.white))
-        .frame(maxWidth: .infinity)
-        .padding()
-        .background(Color(.black))
-        .clipShape(RoundedRectangle(cornerRadius: 12))
-        .bold()
         .buttonStyle(.plain)
         .padding(.horizontal, 20)
         .buttonStyle(BlackButtonStyle())
@@ -67,15 +69,17 @@ struct ResultsView: View {
     
     @ViewBuilder
     private var goHome : some View{
-        Button("Go Home") {
+        Button {
             navPath.removeLast(navPath.count) // clears entire stack → back to ContentView
+        } label: {
+            Text("Go Home")
+                .foregroundStyle(Color(.black))
+                .frame(maxWidth: .infinity)
+                .padding()
+                .background(Color(.systemGray6))
+                .clipShape(RoundedRectangle(cornerRadius: 12))
+                .bold()
         }
-        .foregroundStyle(Color(.black))
-        .frame(maxWidth: .infinity)
-        .padding()
-        .background(Color(.systemGray6))
-        .clipShape(RoundedRectangle(cornerRadius: 12))
-        .bold()
         .buttonStyle(.plain)
         .padding(.horizontal, 20)
         .buttonStyle(GrayButtonStyle())
@@ -182,38 +186,42 @@ struct ResultsView: View {
     var body: some View {
         VStack (alignment: .center, spacing: 12){
             ZStack (alignment: .bottomTrailing){
-                ScrollView{
-                    VStack (alignment: .center, spacing: 12) {
-                        if ticket.drawDates.count == 0 && !ticket.drawNumbers.isEmpty && !ticket.drawSpecials.isEmpty && ticket.drawNumbers[0] != [] && ticket.drawSpecials[0] != []{ //then wins will contain all potential wins
-                            Text("No draw dates were entered, so all possible wins are shown. Check your ticket for the exact draw date(s).")
-                                .font(.headline)
-                                .fontWeight(.medium)
-                                .foregroundStyle(.secondary)
-                                .padding(.horizontal, 12)
+                GeometryReader { geometry in
+                    ScrollView{
+                        VStack (alignment: .center, spacing: 12) {
+                            if ticket.drawDates.count == 0 && !ticket.drawNumbers.isEmpty && !ticket.drawSpecials.isEmpty && ticket.drawNumbers[0] != [] && ticket.drawSpecials[0] != []{ //then wins will contain all potential wins
+                                Text("No draw dates were entered, so all possible wins are shown. Check your ticket for the exact draw date(s).")
+                                    .font(.headline)
+                                    .fontWeight(.medium)
+                                    .foregroundStyle(.secondary)
+                                    .padding(.horizontal, 12)
+                                
+                                Spacer()
+                                Divider()
+                            }
+                            
+                            if wins.isEmpty{
+                                Spacer()
+                                
+                                Text("This ticket is not a winner")
+                                    .font(.subheadline)
+                                    .fontWeight(.medium)
+                                    .foregroundStyle(.secondary)
+                            }else{
+                                Text("⭐️ Congratulations! This ticket is a winner! ⭐️")
+                                    .font(.subheadline)
+                                    .fontWeight(.medium)
+                                    .foregroundStyle(.secondary)
+                                
+                                winsCards
+                            }
                             
                             Spacer()
-                            Divider()
                         }
-                        
-                        if wins.isEmpty{
-                            Spacer()
-                            
-                            Text("This ticket is not a winner")
-                                .font(.subheadline)
-                                .fontWeight(.medium)
-                                .foregroundStyle(.red)
-                        }else{
-                            Text("⭐️ Congratulations! This ticket is a winner! ⭐️")
-                                .font(.subheadline)
-                                .fontWeight(.medium)
-                                .foregroundStyle(.green)
-                            
-                            winsCards
-                        }
+                        .frame(maxWidth: .infinity, minHeight: geometry.size.height)
+                        .padding(.horizontal)
                     }
-                    .padding(.horizontal)
                 }
-                .frame(maxHeight: .infinity)
                 
                 Button {
                     showHelpSheet = true
