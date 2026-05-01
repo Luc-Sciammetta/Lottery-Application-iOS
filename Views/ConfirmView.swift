@@ -10,24 +10,28 @@ struct ConfirmView: View {
     
     @Binding var navPath: NavigationPath
     
-    @State private var selectedGame: String
+    @State private var selectedGame: String //holds the selected lottery game
     
+    //for editing dates
     @State private var selectedDateIndex: Int? = nil
     @State private var showingDatePicker: Bool = false
     @State private var newSelectedDate: Date = Date()
     
+    //for editing ball numbers
     @State private var editingSpecial: Bool = false
     @State private var selectedDrawIndex: Int? = nil
     @State private var selectedNumberIndex: Int? = nil
     @State private var showingNumberPicker: Bool = false
     @State private var newSelectedNumber: Int = 0
     
+    //alerts
     @State private var showingTooManyDatesAlert: Bool = false
     @State private var numbersInAnInvalidRangeAlert: Bool = false
     @State private var tooManyDrawsAlert: Bool = false
     @State private var unfilledNumbersAlert: Bool = false
+    @State private var noTicketAlert: Bool = false
     
-    @State private var isTicket: Bool = true
+    @State private var isTicket: Bool = true //whether the image is detected to be a ticket or not
     
     
     let gameNames: [String: String] = [
@@ -57,11 +61,13 @@ struct ConfirmView: View {
         "euromillions": (1...50, 1...12)
     ]
     
+    //init function
     init(ticket: ParsedTicket, navPath: Binding<NavigationPath>) {
         self.ticket = ticket
         self._navPath = navPath
         self._selectedGame = State(initialValue: ticket.game)
         
+        //detects if we have a ticket or not
         let isEmpty = ticket.drawDates.isEmpty &&
                 ticket.drawNumbers.count == 1 &&
                 ticket.drawNumbers[0].isEmpty &&
@@ -71,6 +77,7 @@ struct ConfirmView: View {
     }
     
     func checkTicketForValidNumberRange() -> Bool{
+        ///Checks to see if the ticket ball numbers are all in the valid range of the lottery game
         let numberRange = LOTTERY_NUMBER_RANGES[ticket.game]
         //check the drawNumbers
         for draw in ticket.drawNumbers{
@@ -94,13 +101,30 @@ struct ConfirmView: View {
     }
     
     func checkForNotFilledNumbers() -> Bool {
+        ///Checks to see if we have numbers in the ticket draw that are not filled in
         for draw in ticket.drawNumbers + ticket.drawSpecials {
             if draw.contains(-1) { return false }
         }
         return true
     }
     
+    func addSpecialBallsToDraws() {
+        ///adds a ball to all specials
+        for index in 0..<ticket.drawSpecials.count {
+            ticket.drawSpecials[index].append(-1) //-1 is the value for an unfilled number
+        }
+    }
+    
+    func removeSpecialBallsFromDraws() {
+        ///removes the last ball from all specials
+        for index in 0..<ticket.drawSpecials.count {
+            ticket.drawSpecials[index].removeLast() //remove the last special ball in the group
+        }
+    }
+    
     var currentPickerRange: [Int] {
+        ///Gets the range that main and special numbers can be in for the selected lottery game
+        ///Also removes any numbers that have already been used in that draw
         let range: [Int]
         
         if editingSpecial {
@@ -122,6 +146,7 @@ struct ConfirmView: View {
     }
     
     struct BlackButtonStyle: ButtonStyle {
+        ///Black button animation
         func makeBody(configuration: Configuration) -> some View {
             configuration.label
                 .scaleEffect(configuration.isPressed ? 0.97 : 1.0)
@@ -134,6 +159,7 @@ struct ConfirmView: View {
 
     @ViewBuilder
     private var dateSection: some View {
+        ///Creates the date section of the view
         if ticket.drawDates.count == 0 {
             HStack{
                 Text("No Dates Found")
@@ -177,6 +203,7 @@ struct ConfirmView: View {
 
     @ViewBuilder
     private var dateHeader: some View {
+        ///Creates the header for the dates when there were dates in the ticket
         HStack{
             Text(ticket.drawDates.count == 1 ? "Date of Draw" : "Dates of Draw - Range")
                 .font(.subheadline)
@@ -202,6 +229,7 @@ struct ConfirmView: View {
 
     @ViewBuilder
     private var drawNumbersSection: some View {
+        ///Creates the draw numbers section
         if ticket.drawNumbers.first?.isEmpty ?? true {
             emptyDrawHeader
         } else {
@@ -215,6 +243,7 @@ struct ConfirmView: View {
 
     @ViewBuilder
     private var emptyDrawHeader: some View {
+        ///Creates the draw header when there are no ball information
         HStack{
             Text("No Draw Information Found")
                 .font(.subheadline)
@@ -242,6 +271,7 @@ struct ConfirmView: View {
 
     @ViewBuilder
     private var populatedDrawHeader: some View {
+        ///Creates the draw number section when there are numbers
         HStack{
             Text("Lottery Draws")
                 .font(.subheadline)
@@ -271,6 +301,7 @@ struct ConfirmView: View {
 
     @ViewBuilder
     private func drawCard(index: Int, numbers: [Int]) -> some View {
+        ///Creates a card of a lottery play/draw
         VStack{
             Text("Play " + (playLetters[index + 1] ?? "Unknown"))
                 .font(.subheadline)
@@ -283,6 +314,7 @@ struct ConfirmView: View {
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
             
+            //Main numbers
             HStack (spacing: 8){
                 ForEach(Array(numbers.enumerated()), id: \.offset) { idx, ball in
                     if ball == -1{ //for balls that were not found in the text parsing
@@ -313,6 +345,7 @@ struct ConfirmView: View {
                 }
             }
             
+            //Special Numbers
             Text(gameSpecialNames[selectedGame] ?? "Special")
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
@@ -365,12 +398,15 @@ struct ConfirmView: View {
     // MARK: - Check Ticket Button
 
     private var checkTicketButton: some View {
+        ///Check the ticket button
         Button{
             Task {
                 if !checkForNotFilledNumbers(){
                     unfilledNumbersAlert = true
                 }else if !checkTicketForValidNumberRange() {
                     numbersInAnInvalidRangeAlert = true
+                }else if !isTicket{
+                    noTicketAlert = true
                 }else{
                     wins = checkForWin(game: selectedGame, drawNumbers: ticket.drawNumbers, drawSpecials: ticket.drawSpecials, drawDates: ticket.drawDates, context: context)
                     print("wins: ", wins)
@@ -394,6 +430,7 @@ struct ConfirmView: View {
     // MARK: - Sheets
 
     private var datePickerSheet: some View {
+        ///Sheet for picking the date
         VStack (spacing: 20){
             Text("Select a Date")
                 .font(.headline)
@@ -423,6 +460,7 @@ struct ConfirmView: View {
     }
 
     private var numberPickerSheet: some View {
+        ///Sheet for picking the numbers
         VStack (spacing: 20){
             Text("Select a New Number")
                 .font(.headline)
@@ -460,6 +498,7 @@ struct ConfirmView: View {
     }
     
     private var gameHeader : some View {
+        ///Header for choosing the lottery game
         HStack {
             Text("Lottery Game")
                 .font(.subheadline)
@@ -481,6 +520,7 @@ struct ConfirmView: View {
     
     @ViewBuilder
     private var gameSection : some View {
+        ///Section for choosing the game
         gameHeader
         
         if isTicket {
@@ -507,6 +547,7 @@ struct ConfirmView: View {
                                 .bold()
                         }
                     }
+                    .buttonStyle(.plain)
                 }
             }
             .padding()
@@ -563,7 +604,13 @@ struct ConfirmView: View {
             ResultsView(wins: wins, ticket: ticket, navPath: $navPath)
         }
         .onChange(of: selectedGame) {
+            let old = ticket.game
             ticket.game = selectedGame
+            if LOTTERY_CONFIGS[old]!.special == 2{ //then we need to remove a special ball from each draw
+                removeSpecialBallsFromDraws()
+            }else if LOTTERY_CONFIGS[selectedGame]!.special == 2{ //then we need to add a special ball to each draw
+                addSpecialBallsToDraws()
+            }
         }
         .alert("Unable to add date", isPresented: $showingTooManyDatesAlert) {
             Button("OK", role: .cancel) { }
@@ -584,6 +631,11 @@ struct ConfirmView: View {
             Button("OK", role: .cancel) { }
         } message: {
             Text("Some draws have unfilled numbers. Please fill them in before checking your ticket.")
+        }
+        .alert("No ticket to check", isPresented: $noTicketAlert) {
+            Button("OK", role: .cancel) { }
+        } message: {
+            Text("No lottery ticket was detected in the provided image. Please enter your ticket details manually by selecting the + beside \"Lottery Game,\" or retake the photo and try again.")
         }
     }
 }

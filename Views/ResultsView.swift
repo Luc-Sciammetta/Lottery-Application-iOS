@@ -57,8 +57,7 @@ struct ResultsView: View {
                 Task {
                     let ticket = await processImage(from: selectedImage)
                     parsedTicket = ticket
-                    // Pop to root first, then push the new ticket
-                    // This avoids duplicate navigationDestination declarations
+                    print("TICKEEEET:", ticket)
                     navPath.removeLast(navPath.count)
                     navPath.append(ticket)
                     
