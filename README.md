@@ -26,3 +26,9 @@ This is based off of the previous code written in Python in the Lottery-Applicat
 
 ## Things to do:
 - Have OCR Read text if there are letters in the way idk.
+
+## Future Things to Add:
+- Have the app tell you an estamated amount of winning.
+- Push notifications for upcoming draws (if a user scans a future ticket, save those numbers, and create a notifcation that appears once that draw happens to remind them to check if they won
+- Ticket history/scan log on home page to see which ticket's the user has scanned
+- Have the user be able to take a photo of multiple separate ticket at a time

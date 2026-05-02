@@ -11,6 +11,8 @@ struct ConfirmView: View {
     @Binding var navPath: NavigationPath
     @Binding var selectedImage: UIImage?
     
+    @State private var capturedImage: UIImage?
+    
     @State private var selectedGame: String //holds the selected lottery game
     
     //for editing dates
@@ -68,6 +70,7 @@ struct ConfirmView: View {
         self._navPath = navPath
         self._selectedGame = State(initialValue: ticket.game)
         self._selectedImage = selectedImage
+        self._capturedImage = State(initialValue: selectedImage.wrappedValue)
         
         //detects if we have a ticket or not
         let isEmpty = ticket.drawDates.isEmpty &&
@@ -421,6 +424,20 @@ struct ConfirmView: View {
                     wins = checkForWin(game: selectedGame, drawNumbers: ticket.drawNumbers, drawSpecials: ticket.drawSpecials, drawDates: ticket.drawDates, context: context)
                     print("wins: ", wins)
                     let result = WinResult(wins: wins, ticket: ticket)
+                    
+                    //to see if we have a winner, non-winner, or the draw hasn't happened yet
+                    var isWinner: Bool? = !wins.isEmpty
+                    if ticket.drawDates.count > 0{
+                        if Date() < ticket.drawDates.last! {
+                            isWinner = nil
+                        }
+                    }
+                    
+                    //save the ticket into the database of scanned tickets
+                    let entry = ScannedTicket(game: ticket.game, scanDate: Date(), drawDates: ticket.drawDates, drawNumbers: ticket.drawNumbers, drawSpecials: ticket.drawSpecials, ticketImageData: capturedImage?.jpegData(compressionQuality: 0.7), isWinner: isWinner)
+                    context.insert(entry)
+                    try? context.save()
+                
                     navPath.append(result)
                 }
             }

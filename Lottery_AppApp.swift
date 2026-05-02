@@ -12,6 +12,6 @@ struct Lottery_AppApp: App {
                     .preferredColorScheme(.light)
             }
         }
-        .modelContainer(for: LotteryDraw.self)
+        .modelContainer(for: [LotteryDraw.self, ScannedTicket.self])
     }
 }

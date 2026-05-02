@@ -22,6 +22,80 @@ let gameSpecialNames: [String: String] = [
 
 let playLetters: [Int: String] = [0: "A", 1: "B", 2: "C", 3: "D", 4: "E", 5: "F", 6: "G", 7: "H", 8: "I", 9: "J", 10: "K", 11: "L", 12: "M", 13: "N", 14: "O", 15: "P", 16: "Q", 17: "R", 18: "S", 19: "T", 20: "U", 21: "V", 22: "W", 23: "X", 24: "Y", 25: "Z"]
 
+
+@ViewBuilder
+func winsCards(wins: [WinDict], game: String) -> some View {
+    ForEach(Array(wins.enumerated()), id: \.offset) { index, win in
+        winCardView(index, win, game: game)
+    }
+}
+
+@ViewBuilder
+func winCardView(_ index: Int, _ win: WinDict, game: String) -> some View {
+    VStack{
+        HStack {
+            Text("Play " + (playLetters[win.playNumber] ?? "Unknown"))
+                .font(.subheadline)
+                .fontWeight(.medium)
+                .foregroundStyle(.secondary)
+            
+            Spacer()
+            
+            let formattedDate = win.drawDate.formatted(date: .long, time: .omitted)
+            Text(formattedDate)
+                .font(.subheadline)
+                .fontWeight(.medium)
+                .foregroundStyle(.secondary)
+        }
+        
+        Divider()
+         
+        Text("Main Numbers")
+            .font(.subheadline)
+            .foregroundStyle(.secondary)
+        
+        HStack (spacing: 8){
+            ForEach(Array(win.drawNumbers.enumerated()), id: \.offset) { idx, ball in
+                if win.matchedNumbers.contains(ball){
+                    Text("\(ball)")
+                        .frame(width: 44, height: 44)
+                        .background(Color(.green))
+                        .clipShape(Circle())
+                }else{
+                    Text("\(ball)")
+                        .frame(width: 44, height: 44)
+                        .background(Color(.systemGray5))
+                        .clipShape(Circle())
+                }
+            }
+        }
+        
+        Text(gameSpecialNames[game] ?? "Special")
+            .font(.subheadline)
+            .foregroundStyle(.secondary)
+        
+        HStack (spacing: 8){
+            ForEach(Array(win.drawSpecials.enumerated()), id: \.offset) { idx, ball in
+                if win.matchedSpecials.contains(ball){
+                    Text("\(ball)")
+                        .frame(width: 44, height: 44)
+                        .background(Color(.green))
+                        .clipShape(Circle())
+                }else{
+                    Text("\(ball)")
+                        .frame(width: 44, height: 44)
+                        .overlay(Circle().stroke(Color.orange, lineWidth: 2))
+                        .clipShape(Circle())
+                }
+            }
+        }
+    }
+    .padding()
+    .frame(maxWidth: .infinity, alignment: .center)
+    .background(Color(.systemGray6))
+    .clipShape(RoundedRectangle(cornerRadius: 12))
+}
+
 struct ResultsView: View {
     var wins: [WinDict]
     @State var ticket: ParsedTicket
@@ -70,79 +144,6 @@ struct ResultsView: View {
         .buttonStyle(.plain)
         .padding(.horizontal, 20)
         .buttonStyle(GrayButtonStyle())
-    }
-    
-    @ViewBuilder
-    private var winsCards : some View {
-        ForEach(Array(wins.enumerated()), id: \.offset) { index, win in
-            winCard(index, win)
-        }
-    }
-    
-    @ViewBuilder
-    private func winCard(_ index: Int, _ win: WinDict) -> some View {
-        VStack{
-            HStack {
-                Text("Play " + (playLetters[win.playNumber] ?? "Unknown"))
-                    .font(.subheadline)
-                    .fontWeight(.medium)
-                    .foregroundStyle(.secondary)
-                
-                Spacer()
-                
-                let formattedDate = win.drawDate.formatted(date: .long, time: .omitted)
-                Text(formattedDate)
-                    .font(.subheadline)
-                    .fontWeight(.medium)
-                    .foregroundStyle(.secondary)
-            }
-            
-            Divider()
-             
-            Text("Main Numbers")
-                .font(.subheadline)
-                .foregroundStyle(.secondary)
-            
-            HStack (spacing: 8){
-                ForEach(Array(win.drawNumbers.enumerated()), id: \.offset) { idx, ball in
-                    if win.matchedNumbers.contains(ball){
-                        Text("\(ball)")
-                            .frame(width: 44, height: 44)
-                            .background(Color(.green))
-                            .clipShape(Circle())
-                    }else{
-                        Text("\(ball)")
-                            .frame(width: 44, height: 44)
-                            .background(Color(.systemGray5))
-                            .clipShape(Circle())
-                    }
-                }
-            }
-            
-            Text(gameSpecialNames[ticket.game] ?? "Special")
-                .font(.subheadline)
-                .foregroundStyle(.secondary)
-            
-            HStack (spacing: 8){
-                ForEach(Array(win.drawSpecials.enumerated()), id: \.offset) { idx, ball in
-                    if win.matchedSpecials.contains(ball){
-                        Text("\(ball)")
-                            .frame(width: 44, height: 44)
-                            .background(Color(.green))
-                            .clipShape(Circle())
-                    }else{
-                        Text("\(ball)")
-                            .frame(width: 44, height: 44)
-                            .overlay(Circle().stroke(Color.orange, lineWidth: 2))
-                            .clipShape(Circle())
-                    }
-                }
-            }
-        }
-        .padding()
-        .frame(maxWidth: .infinity, alignment: .center)
-        .background(Color(.systemGray6))
-        .clipShape(RoundedRectangle(cornerRadius: 12))
     }
     
     @ViewBuilder
@@ -195,15 +196,14 @@ struct ResultsView: View {
                                     .fontWeight(.medium)
                                     .foregroundStyle(.secondary)
                             }else{
-                                Text("⭐️ Congratulations! This ticket is a winner! ⭐️")
+                                Text("Congratulations! This ticket won!")
                                     .font(.title3)
                                     .fontWeight(.medium)
                                     .foregroundStyle(.secondary)
                                 
-                                Spacer()
                                 Divider()
                                 
-                                winsCards
+                                winsCards(wins: wins, game: ticket.game)
                             }
                             
                             Spacer()

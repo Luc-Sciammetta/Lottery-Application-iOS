@@ -27,9 +27,20 @@ struct GrayButtonStyle: ButtonStyle {
     }
 }
 
-struct WinResult: Hashable {
+struct WinResult: Hashable, Identifiable {
+    let id = UUID()
     var wins: [WinDict]
     var ticket: ParsedTicket
+    
+    //for the sheet that displays the results
+    func hash(into hasher: inout Hasher) {
+        hasher.combine(wins)
+        hasher.combine(ticket)
+    }
+    
+    static func == (lhs: WinResult, rhs: WinResult) -> Bool {
+        lhs.wins == rhs.wins && lhs.ticket == rhs.ticket
+    }
 }
 
 struct ContentView: View {
@@ -46,8 +57,12 @@ struct ContentView: View {
     
     @State private var hasRefreshedData: Bool = false
     
+    @State private var pastResultSheetData: WinResult?
+    
     @Environment(\.modelContext) private var context //context for saving the lottery data
     @Environment(\.colorScheme) var colorScheme //for dark mode/light mode
+    
+    @Query(sort: \ScannedTicket.scanDate, order: .reverse) var pastTickets: [ScannedTicket] //to get all past scanned tickets
     
     private let allGames = ["powerball", "megamillions", "lottoamerica", "euromillions"]
     
@@ -57,6 +72,188 @@ struct ContentView: View {
         "lottoamerica": [2, 4, 7],
         "euromillions": [3, 6]
     ]
+    
+    private func winBadge(_ isWinner: Bool?) -> some View {
+        let label: String
+        let foreground: Color
+        let background: Color
+        
+        switch isWinner {
+        case true:
+            label = "Winner"
+            foreground = Color(red: 0.23, green: 0.53, blue: 0.07)
+            background = Color(red: 0.92, green: 0.95, blue: 0.87)
+        case false:
+            label = "No Win"
+            foreground = .secondary
+            background = Color(.systemGray5)
+        default:
+            label = "Not checked"
+            foreground = Color(red: 0.52, green: 0.31, blue: 0.04)
+            background = Color(red: 0.98, green: 0.93, blue: 0.85)
+        }
+        
+        return Text(label)
+            .font(.system(size: 12, weight: .medium))
+            .foregroundStyle(foreground)
+            .padding(.horizontal, 8)
+            .padding(.vertical, 2)
+            .background(background)
+            .clipShape(Capsule())
+    }
+    
+    @ViewBuilder
+    private func ballView(_ number: Int, matched: Bool, isSpecial: Bool) -> some View {
+        if matched {
+            if isSpecial{
+                Text("\(number)")
+                    .font(.system(size: 14, weight: .medium))
+                    .frame(width: 26, height: 26)
+                    .background(Color(.green))
+                    .overlay(Circle().stroke(Color.orange, lineWidth: 4))
+                    .clipShape(Circle())
+            }else{
+                Text("\(number)")
+                    .font(.system(size: 14, weight: .medium))
+                    .frame(width: 26, height: 26)
+                    .background(Color(.green))
+                    .clipShape(Circle())
+            }
+            
+        }else if isSpecial{
+            Text("\(number)")
+                .font(.system(size: 14, weight: .medium))
+                .frame(width: 26, height: 26)
+                .overlay(Circle().stroke(Color.orange, lineWidth: 2))
+                .clipShape(Circle())
+        }else{
+            Text("\(number)")
+                .font(.system(size: 14, weight: .medium))
+                .frame(width: 26, height: 26)
+                .background(Color(.systemGray5))
+                .clipShape(Circle())
+        }
+    }
+    
+    @ViewBuilder
+    private var scannedTicketsView : some View{
+        VStack{
+            Text("Recently Scanned")
+                .font(.headline)
+                .fontWeight(.medium)
+                .foregroundStyle(.secondary)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.top, 16)
+            
+            if pastTickets.count == 0{
+                Text("No recently scanned tickets")
+                    .foregroundStyle(Color.secondary) //changes the color of the text
+                    .padding()
+                    .font(.subheadline)
+                    .fontWeight(.medium)
+                    .padding(.top, -6)
+            }
+            
+            VStack (spacing: 8){
+                ForEach(Array(pastTickets.enumerated()), id: \.offset) { idx, ticket in
+                    Button {
+                        //click on it to see a sheet of the draws
+                        let wins = checkForWin(game: ticket.game, drawNumbers: ticket.drawNumbers, drawSpecials: ticket.drawSpecials, drawDates: ticket.drawDates, context: context)
+                        pastResultSheetData = WinResult(wins: wins, ticket: ParsedTicket(game: ticket.game, drawDates: ticket.drawDates, drawNumbers: ticket.drawNumbers, drawSpecials: ticket.drawSpecials))
+                    } label: {
+                        HStack{
+                            //thumbnail
+                            Group {
+                                if let data = ticket.ticketImageData,
+                                    let img = UIImage(data: data) {
+                                    Image(uiImage: img)
+                                        .resizable()
+                                        .scaledToFill()
+                                } else {
+                                    Color(.systemGray5)
+                                }
+                            }
+                            .frame(width: 44, height: 62)
+                            .clipShape(RoundedRectangle(cornerRadius: 12))
+                            
+                            VStack (alignment: .leading, spacing: 3){
+                                //game name + win badge
+                                HStack{
+                                    Text(gameNames[ticket.game] ?? ticket.game)
+                                        .font(.subheadline)
+                                        .foregroundStyle(.secondary)
+                                    
+                                    Spacer()
+                                    
+                                    winBadge(ticket.isWinner)
+                                }
+                                
+                                //dates
+                                Text("Scanned \(ticket.scanDate.formatted(date: .abbreviated, time: .omitted))")
+                                    .font(.subheadline)
+                                    .foregroundStyle(.secondary)
+                                
+                                switch ticket.drawDates.count {
+                                case 0:
+                                    Text("No Draw Date")
+                                        .font(.subheadline)
+                                        .foregroundStyle(.secondary)
+                                case 1:
+                                    Text("Draw \(ticket.drawDates[0], format: .dateTime.month().day().year())")
+                                        .font(.subheadline)
+                                        .foregroundStyle(.secondary)
+                                case 2:
+                                    Text("Draw \(ticket.drawDates[0], format: .dateTime.month().day().year()) - \(ticket.drawDates[1], format: .dateTime.month().day().year())")
+                                        .font(.subheadline)
+                                        .foregroundStyle(.secondary)
+                                default:
+                                    Text("Somehow you broke the app...")
+                                        .font(.subheadline)
+                                        .foregroundStyle(.secondary)
+                                }
+                            }
+                        }
+                        .padding(12)
+                        .background(Color(.systemGray6))
+                        .clipShape(RoundedRectangle(cornerRadius: 12))
+                        .foregroundStyle(.secondary)
+                    }
+                    .buttonStyle(.plain)
+                    .contextMenu {
+                        Button(role: .destructive) {
+                            context.delete(ticket)
+                        } label: {
+                            Label("Delete", systemImage: "trash")
+                        }
+                    }
+                }
+            }
+        }
+    }
+    
+    private func pastResultSheet(data: WinResult) -> some View {
+        Group {
+            if !data.wins.isEmpty {
+                ScrollView{
+                    Spacer()
+                    Text("Results")
+                        .font(.title2)
+                        .fontWeight(.medium)
+                        .foregroundStyle(.secondary)
+                    winsCards(wins: data.wins, game: data.ticket.game)
+                }
+            }else{
+                VStack{
+                    Text("This ticket is not a winner")
+                        .font(.title2)
+                        .fontWeight(.medium)
+                        .foregroundStyle(.secondary)
+                }
+            }
+        }
+        .padding()
+        .presentationDetents([.large])
+    }
     
     var body: some View {
         VStack{
@@ -73,8 +270,7 @@ struct ContentView: View {
                         Image("Logo trans1")
                             .resizable()
                             .scaledToFit()
-                            .frame(width: 100, height: 100)
-                            .padding(.trailing, 4)
+                            .frame(width: 90, height: 90)
                     }
                     
                     
@@ -103,6 +299,11 @@ struct ContentView: View {
                             .font(.subheadline)
                             .fontWeight(.medium)
                     }
+                    
+                    Spacer()
+                    Divider()
+                    Spacer()
+                    scannedTicketsView
                 }
                 .padding()
                 .overlay {
@@ -126,7 +327,6 @@ struct ContentView: View {
                             parsedTicket = ticket
                             isProcessing = false
                             navigationPath.append(ticket)
-                            self.selectedImage = nil
                         }
                     }
                 }
@@ -196,6 +396,9 @@ struct ContentView: View {
                     await refreshDataIfNeeded()
                 }
             }
+        }
+        .sheet(item: $pastResultSheetData){ data in
+            pastResultSheet(data: data)
         }
     }
     
