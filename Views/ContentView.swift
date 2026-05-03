@@ -1,6 +1,7 @@
 import SwiftUI
 import SwiftData
 import PhotosUI
+import UserNotifications
 
 struct ParsedTicket: Hashable{
     var game: String
@@ -58,6 +59,7 @@ struct ContentView: View {
     @State private var hasRefreshedData: Bool = false
     
     @State private var pastResultSheetData: WinResult?
+    @State private var pastResultSheetHasBeenChecked: Bool = false
     
     @Environment(\.modelContext) private var context //context for saving the lottery data
     @Environment(\.colorScheme) var colorScheme //for dark mode/light mode
@@ -73,24 +75,31 @@ struct ContentView: View {
         "euromillions": [3, 6]
     ]
     
-    private func winBadge(_ isWinner: Bool?) -> some View {
+    private func winBadge(_ isWinner: Bool?, lastDrawDate: Date?) -> some View {
         let label: String
         let foreground: Color
         let background: Color
         
-        switch isWinner {
-        case true:
+        if isWinner == true {
             label = "Winner"
             foreground = Color(red: 0.23, green: 0.53, blue: 0.07)
             background = Color(red: 0.92, green: 0.95, blue: 0.87)
-        case false:
+        }else if isWinner == false{
             label = "No Win"
             foreground = .secondary
             background = Color(.systemGray5)
-        default:
-            label = "Not checked"
-            foreground = Color(red: 0.52, green: 0.31, blue: 0.04)
-            background = Color(red: 0.98, green: 0.93, blue: 0.85)
+        }else{ //isWinner == nil
+            let today = Calendar.current.startOfDay(for: Date())
+            let lastDraw = Calendar.current.startOfDay(for: lastDrawDate!)
+            if today <= lastDraw {
+                label = "Live"
+                foreground = Color(red: 0.52, green: 0.31, blue: 0.04)
+                background = Color(red: 0.98, green: 0.93, blue: 0.85)
+            }else{
+                label = "No Checked"
+                foreground = Color(red: 0.10, green: 0.30, blue: 0.60)
+                background = Color(red: 0.88, green: 0.93, blue: 0.98)
+            }
         }
         
         return Text(label)
@@ -138,7 +147,7 @@ struct ContentView: View {
     @ViewBuilder
     private var scannedTicketsView : some View{
         VStack{
-            Text("Recently Scanned")
+            Text("Previously Scanned")
                 .font(.headline)
                 .fontWeight(.medium)
                 .foregroundStyle(.secondary)
@@ -146,7 +155,7 @@ struct ContentView: View {
                 .padding(.top, 16)
             
             if pastTickets.count == 0{
-                Text("No recently scanned tickets")
+                Text("No scanned tickets")
                     .foregroundStyle(Color.secondary) //changes the color of the text
                     .padding()
                     .font(.subheadline)
@@ -160,6 +169,24 @@ struct ContentView: View {
                         //click on it to see a sheet of the draws
                         let wins = checkForWin(game: ticket.game, drawNumbers: ticket.drawNumbers, drawSpecials: ticket.drawSpecials, drawDates: ticket.drawDates, context: context)
                         pastResultSheetData = WinResult(wins: wins, ticket: ParsedTicket(game: ticket.game, drawDates: ticket.drawDates, drawNumbers: ticket.drawNumbers, drawSpecials: ticket.drawSpecials))
+                        
+                        if ticket.isWinner == nil{
+                            pastResultSheetHasBeenChecked = false //indicates that we have never checked the results of this ticket before
+                            
+                            if ticket.drawDates.count > 0{
+                                let today = Calendar.current.startOfDay(for: Date())
+                                let lastDrawDate = Calendar.current.startOfDay(for: ticket.drawDates.last!)
+                                
+                                if today > lastDrawDate{
+                                    //so we are now checking it so we can update this tickets isWinner parameter
+                                    ticket.isWinner = !wins.isEmpty
+                                    try? context.save()
+                                }
+                            }
+                        }else{
+                            pastResultSheetHasBeenChecked = true
+                        }
+                        
                     } label: {
                         HStack{
                             //thumbnail
@@ -185,7 +212,7 @@ struct ContentView: View {
                                     
                                     Spacer()
                                     
-                                    winBadge(ticket.isWinner)
+                                    winBadge(ticket.isWinner, lastDrawDate: ticket.drawDates.last)
                                 }
                                 
                                 //dates
@@ -221,6 +248,13 @@ struct ContentView: View {
                     .buttonStyle(.plain)
                     .contextMenu {
                         Button(role: .destructive) {
+                            //delete any notifications associated with this ticket
+                            if let lastDate = ticket.drawDates.last {
+                                UNUserNotificationCenter.current().removePendingNotificationRequests(
+                                    withIdentifiers: ["ticket-\(ticket.game)-\(lastDate.timeIntervalSince1970)"]
+                                )
+                            }
+                            //delete the ticket
                             context.delete(ticket)
                         } label: {
                             Label("Delete", systemImage: "trash")
@@ -244,10 +278,22 @@ struct ContentView: View {
                 }
             }else{
                 VStack{
-                    Text("This ticket is not a winner")
-                        .font(.title2)
-                        .fontWeight(.medium)
-                        .foregroundStyle(.secondary)
+                    if pastResultSheetHasBeenChecked == false {
+                        Text("This draw hasn't occurred yet")
+                            .font(.title2)
+                            .fontWeight(.medium)
+                            .foregroundStyle(.secondary)
+                        Text("Check back after \(data.ticket.drawDates.last!, format: .dateTime.month().day().year())")
+                            .font(.headline)
+                            .fontWeight(.medium)
+                            .foregroundStyle(.secondary)
+                            .padding(.top, 4)
+                    }else{
+                        Text("This ticket is not a winner")
+                            .font(.title2)
+                            .fontWeight(.medium)
+                            .foregroundStyle(.secondary)
+                    }
                 }
             }
         }
@@ -257,33 +303,33 @@ struct ContentView: View {
     
     var body: some View {
         VStack{
+            HStack (spacing: 16){
+                Text("ScanMyTicket")
+                    .font(.largeTitle)
+                    .fontWeight(.bold)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                
+                Spacer()
+                
+                Image("Logo trans1")
+                    .resizable()
+                    .scaledToFit()
+                    .frame(width: 90, height: 90)
+            }
+            .padding()
+            
+            Text("Scan a ticket to check for wins")
+                .font(.headline)
+                .fontWeight(.medium)
+                .foregroundStyle(.secondary)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding()
+                .padding(.top, -40)
+            
+            Spacer()
+            
             ScrollView {
                 VStack {
-                    HStack (spacing: 16){
-                        Text("ScanMyTicket")
-                            .font(.largeTitle)
-                            .fontWeight(.bold)
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                        
-                        Spacer()
-                        
-                        Image("Logo trans1")
-                            .resizable()
-                            .scaledToFit()
-                            .frame(width: 90, height: 90)
-                    }
-                    
-                    
-                                        
-                    Text("Scan a ticket to check for wins")
-                        .font(.headline)
-                        .fontWeight(.medium)
-                        .foregroundStyle(.secondary)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                    
-                    Spacer()
-                    Text("")
-                    
                     Divider()
                     
                     //display the selected image/placeholder
@@ -292,8 +338,9 @@ struct ContentView: View {
                             .resizable()
                             .scaledToFit()
                             .frame(height: 300)
+                            .padding()
                     }else{
-                        Text("No Image Selected")
+                        Text("No Ticket Selected")
                             .foregroundStyle(Color.secondary) //changes the color of the text
                             .padding()
                             .font(.subheadline)
@@ -302,7 +349,7 @@ struct ContentView: View {
                     
                     Spacer()
                     Divider()
-                    Spacer()
+                    
                     scannedTicketsView
                 }
                 .padding()
@@ -331,6 +378,7 @@ struct ContentView: View {
                     }
                 }
             }
+            .padding(.top, -10)
             
             VStack (alignment: .center, spacing: 12){
                 Button(action: {

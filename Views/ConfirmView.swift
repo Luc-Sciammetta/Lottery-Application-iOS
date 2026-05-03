@@ -1,6 +1,7 @@
 import SwiftUI
 import SwiftData
 import PhotosUI
+import UserNotifications
 
 struct ConfirmView: View {
     @State var ticket: ParsedTicket
@@ -36,6 +37,7 @@ struct ConfirmView: View {
     
     @State private var isTicket: Bool = true //whether the image is detected to be a ticket or not
     
+    @State private var goHomeFromCheckTicket: Bool = false
     
     let gameNames: [String: String] = [
         "powerball": "Powerball",
@@ -164,6 +166,30 @@ struct ConfirmView: View {
         }
     }
     
+    func scheduleTicketReminder(drawDate: Date, game: String){
+        //shedule a reminder to check a ticket
+        let content = UNMutableNotificationContent()
+        content.title = "Check your ticket!"
+        content.body = "Your \(gameNames[game]!) ticket draw happened - tap to see if you won."
+        content.sound = .default
+        
+        var triggerDate = Calendar.current.dateComponents([.year, .month, .day], from: drawDate)
+        triggerDate.hour = 10 //10am
+        triggerDate.minute = 0
+        
+        guard let reminderDate = Calendar.current.date(from: triggerDate), let nextDay = Calendar.current.date(byAdding: .day, value: 1, to: reminderDate) else { return }
+        
+        let nextDayComponents = Calendar.current.dateComponents([.year, .month, .day, .hour, .minute], from: nextDay)
+        let trigger = UNCalendarNotificationTrigger(dateMatching: nextDayComponents, repeats: false)
+        
+        let request = UNNotificationRequest(identifier: "ticket-\(game)-\(drawDate.timeIntervalSince1970)", content: content, trigger: trigger)
+        UNUserNotificationCenter.current().add(request) {error in
+            if let error { print("Failed to schedule notification: \(error)") }
+        }
+        
+        print("Reminder Scheduled for \(nextDayComponents) with message \(content.body)")
+    }
+    
     // MARK: - Date Section
 
     @ViewBuilder
@@ -225,6 +251,7 @@ struct ConfirmView: View {
             Button{
                 if ticket.drawDates.count < 2 {
                     ticket.drawDates.append(Date())
+                    
                 } else {
                     showingTooManyDatesAlert = true
                 }
@@ -413,6 +440,14 @@ struct ConfirmView: View {
     private var checkTicketButton: some View {
         ///Check the ticket button
         Button{
+            // Determine if the draw hasn't happened yet (all dates in the future)
+            if ticket.drawDates.count > 0 {
+                let today = Calendar.current.startOfDay(for: Date())
+                let lastDrawDate = Calendar.current.startOfDay(for: ticket.drawDates.last!)
+                let firstDrawDate = Calendar.current.startOfDay(for: ticket.drawDates.first!)
+                goHomeFromCheckTicket = today <= lastDrawDate && today <= firstDrawDate
+            }
+            
             Task {
                 if !checkForNotFilledNumbers(){
                     unfilledNumbersAlert = true
@@ -428,8 +463,11 @@ struct ConfirmView: View {
                     //to see if we have a winner, non-winner, or the draw hasn't happened yet
                     var isWinner: Bool? = !wins.isEmpty
                     if ticket.drawDates.count > 0{
-                        if Date() < ticket.drawDates.last! {
-                            isWinner = nil
+                        let today = Calendar.current.startOfDay(for: Date())
+                        let lastDrawDate = Calendar.current.startOfDay(for: ticket.drawDates.last!)
+                        if today <= lastDrawDate { //the draw hasn't happened, so create a reminder
+                            scheduleTicketReminder(drawDate: ticket.drawDates.last!, game: ticket.game)
+                            isWinner = nil //marker to say the draw hasn't happened yet
                         }
                     }
                     
@@ -438,17 +476,46 @@ struct ConfirmView: View {
                     context.insert(entry)
                     try? context.save()
                 
-                    navPath.append(result)
+                    if goHomeFromCheckTicket{ //go home if we only need to schedule a reminder
+                        navPath.removeLast(navPath.count) // clears entire stack → back to ContentView
+                    }else{
+                        navPath.append(result)
+                    }
                 }
             }
         } label: {
-            Text("Check Ticket")
-                .foregroundStyle(Color(.white))
-                .frame(maxWidth: .infinity)
-                .padding()
-                .background(Color(.black))
-                .clipShape(RoundedRectangle(cornerRadius: 12))
-                .bold()
+            if ticket.drawDates.count > 0{
+                let today = Calendar.current.startOfDay(for: Date())
+                let lastDrawDate = Calendar.current.startOfDay(for: ticket.drawDates.last!)
+                let firstDrawDate = Calendar.current.startOfDay(for: ticket.drawDates.first!)
+                let drawNotYetHappened = today <= lastDrawDate && today <= firstDrawDate
+                if drawNotYetHappened {
+                    Text("Set Reminder")
+                        .foregroundStyle(Color(.white))
+                        .frame(maxWidth: .infinity)
+                        .padding()
+                        .background(Color(.black))
+                        .clipShape(RoundedRectangle(cornerRadius: 12))
+                        .bold()
+                } else {
+                    Text("Check Ticket")
+                        .foregroundStyle(Color(.white))
+                        .frame(maxWidth: .infinity)
+                        .padding()
+                        .background(Color(.black))
+                        .clipShape(RoundedRectangle(cornerRadius: 12))
+                        .bold()
+                }
+            }else{
+                Text("Check Ticket")
+                    .foregroundStyle(Color(.white))
+                    .frame(maxWidth: .infinity)
+                    .padding()
+                    .background(Color(.black))
+                    .clipShape(RoundedRectangle(cornerRadius: 12))
+                    .bold()
+            }
+            
         }
         .buttonStyle(.plain)
         .padding(.horizontal, 20)
