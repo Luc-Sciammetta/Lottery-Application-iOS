@@ -34,6 +34,8 @@ struct ConfirmView: View {
     @State private var tooManyDrawsAlert: Bool = false
     @State private var unfilledNumbersAlert: Bool = false
     @State private var noTicketAlert: Bool = false
+    @State private var duplicateTicketAlert: Bool = false
+    @State private var duplicateContinuation: (() -> Void)? //a function on what should be done next
     
     @State private var isTicket: Bool = true //whether the image is detected to be a ticket or not
     
@@ -113,6 +115,66 @@ struct ConfirmView: View {
             if draw.contains(-1) { return false }
         }
         return true
+    }
+    
+    func performCheckTicket() async {
+        ///task that checks the ticket
+        wins = checkForWin(game: selectedGame, drawNumbers: ticket.drawNumbers, drawSpecials: ticket.drawSpecials, drawDates: ticket.drawDates, context: context)
+        print("wins: ", wins)
+        let result = WinResult(wins: wins, ticket: ticket)
+        
+        //to see if we have a winner, non-winner, or the draw hasn't happened yet
+        var isWinner: Bool? = !wins.isEmpty
+        if ticket.drawDates.count > 0{
+            let today = Calendar.current.startOfDay(for: Date())
+            let lastDrawDate = Calendar.current.startOfDay(for: ticket.drawDates.last!)
+            if today <= lastDrawDate { //the draw hasn't happened, so create a reminder
+                let granted = try? await UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound, .badge])
+                if granted == true {
+                    print("Notification permission granted")
+                    scheduleTicketReminder(drawDate: ticket.drawDates.last!, game: ticket.game)
+                }
+                isWinner = nil //marker to say the draw hasn't happened yet
+            }
+        }
+        
+        //save the ticket into the database of scanned tickets
+        let entry = ScannedTicket(game: ticket.game, scanDate: Date(), drawDates: ticket.drawDates, drawNumbers: ticket.drawNumbers, drawSpecials: ticket.drawSpecials, ticketImageData: capturedImage?.jpegData(compressionQuality: 0.7), isWinner: isWinner)
+        context.insert(entry)
+        try? context.save()
+    
+        if goHomeFromCheckTicket{ //go home if we only need to schedule a reminder
+            navPath.removeLast(navPath.count) // clears entire stack → back to ContentView
+        }else{
+            navPath.append(result)
+        }
+    }
+    
+    func checkForDuplicateTicket(onContinue: (() -> Void)? = nil) {
+        /// Checks if the current ticket has already been scanned.
+        /// If it's a duplicate, shows an alert with options to go home or continue.
+        /// If not a duplicate, runs the continuation immediately.
+        let fetchDescriptor = FetchDescriptor<ScannedTicket>()
+        guard let storedTickets = try? context.fetch(fetchDescriptor) else {
+            onContinue?()
+            return
+        }
+        
+        let calendar = Calendar.current
+        let currentDates = ticket.drawDates.map { calendar.startOfDay(for: $0) }
+        
+        for stored in storedTickets {
+            let storedDates = stored.drawDates.map { calendar.startOfDay(for: $0) }
+            if stored.game == ticket.game &&
+                storedDates == currentDates &&
+                stored.drawNumbers == ticket.drawNumbers &&
+                stored.drawSpecials == ticket.drawSpecials {
+                duplicateContinuation = onContinue
+                duplicateTicketAlert = true
+                return
+            }
+        }
+        onContinue?()
     }
     
     func addSpecialBallsToDraws() {
@@ -456,30 +518,10 @@ struct ConfirmView: View {
                 }else if !isTicket{
                     noTicketAlert = true
                 }else{
-                    wins = checkForWin(game: selectedGame, drawNumbers: ticket.drawNumbers, drawSpecials: ticket.drawSpecials, drawDates: ticket.drawDates, context: context)
-                    print("wins: ", wins)
-                    let result = WinResult(wins: wins, ticket: ticket)
-                    
-                    //to see if we have a winner, non-winner, or the draw hasn't happened yet
-                    var isWinner: Bool? = !wins.isEmpty
-                    if ticket.drawDates.count > 0{
-                        let today = Calendar.current.startOfDay(for: Date())
-                        let lastDrawDate = Calendar.current.startOfDay(for: ticket.drawDates.last!)
-                        if today <= lastDrawDate { //the draw hasn't happened, so create a reminder
-                            scheduleTicketReminder(drawDate: ticket.drawDates.last!, game: ticket.game)
-                            isWinner = nil //marker to say the draw hasn't happened yet
+                    checkForDuplicateTicket { //function checkForDuplicateTicket that takes the function performCheckTicket as its continuation
+                        Task {
+                            await self.performCheckTicket()
                         }
-                    }
-                    
-                    //save the ticket into the database of scanned tickets
-                    let entry = ScannedTicket(game: ticket.game, scanDate: Date(), drawDates: ticket.drawDates, drawNumbers: ticket.drawNumbers, drawSpecials: ticket.drawSpecials, ticketImageData: capturedImage?.jpegData(compressionQuality: 0.7), isWinner: isWinner)
-                    context.insert(entry)
-                    try? context.save()
-                
-                    if goHomeFromCheckTicket{ //go home if we only need to schedule a reminder
-                        navPath.removeLast(navPath.count) // clears entire stack → back to ContentView
-                    }else{
-                        navPath.append(result)
                     }
                 }
             }
@@ -707,6 +749,9 @@ struct ConfirmView: View {
                 addSpecialBallsToDraws()
             }
         }
+        .onAppear {
+            checkForDuplicateTicket()
+        }
         .alert("Unable to add date", isPresented: $showingTooManyDatesAlert) {
             Button("OK", role: .cancel) { }
         } message: {
@@ -731,6 +776,17 @@ struct ConfirmView: View {
             Button("OK", role: .cancel) { }
         } message: {
             Text("No lottery ticket was detected in the provided image. Please enter your ticket details manually by selecting the + beside \"Lottery Game,\" or retake the photo and try again.")
+        }
+        .alert("Duplicate ticket", isPresented: $duplicateTicketAlert) {
+            Button("Go Home", role: .cancel) {
+                navPath.removeLast(navPath.count)
+            }
+            Button("Continue") {
+                duplicateContinuation?()
+                duplicateContinuation = nil
+            }
+        } message: {
+            Text("This ticket has already been scanned. Would you like to continue or go home?")
         }
     }
 }

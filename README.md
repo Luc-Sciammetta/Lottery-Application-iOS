@@ -21,6 +21,7 @@ This is based off of the previous code written in Python in the Lottery-Applicat
 - Classify the lottery game to determine what game the ticket is for
 - Litterally the whole UI/app
 - Ticket history/scan log on home page to see which ticket's the user has scanned
+- User is let know if they are scanning a duplicate ticket
 - Push notifications for upcoming draws (if a user scans a future ticket, save those numbers, and create a notifcation that appears once that draw happens to remind them to check if they won
 
 ## Known Issues

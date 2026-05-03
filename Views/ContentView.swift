@@ -59,7 +59,7 @@ struct ContentView: View {
     @State private var hasRefreshedData: Bool = false
     
     @State private var pastResultSheetData: WinResult?
-    @State private var pastResultSheetHasBeenChecked: Bool = false
+    @State private var isTicketFinished: Bool = false
     
     @Environment(\.modelContext) private var context //context for saving the lottery data
     @Environment(\.colorScheme) var colorScheme //for dark mode/light mode
@@ -96,7 +96,7 @@ struct ContentView: View {
                 foreground = Color(red: 0.52, green: 0.31, blue: 0.04)
                 background = Color(red: 0.98, green: 0.93, blue: 0.85)
             }else{
-                label = "No Checked"
+                label = "Not Checked"
                 foreground = Color(red: 0.10, green: 0.30, blue: 0.60)
                 background = Color(red: 0.88, green: 0.93, blue: 0.98)
             }
@@ -170,21 +170,20 @@ struct ContentView: View {
                         let wins = checkForWin(game: ticket.game, drawNumbers: ticket.drawNumbers, drawSpecials: ticket.drawSpecials, drawDates: ticket.drawDates, context: context)
                         pastResultSheetData = WinResult(wins: wins, ticket: ParsedTicket(game: ticket.game, drawDates: ticket.drawDates, drawNumbers: ticket.drawNumbers, drawSpecials: ticket.drawSpecials))
                         
-                        if ticket.isWinner == nil{
-                            pastResultSheetHasBeenChecked = false //indicates that we have never checked the results of this ticket before
-                            
-                            if ticket.drawDates.count > 0{
-                                let today = Calendar.current.startOfDay(for: Date())
-                                let lastDrawDate = Calendar.current.startOfDay(for: ticket.drawDates.last!)
-                                
-                                if today > lastDrawDate{
-                                    //so we are now checking it so we can update this tickets isWinner parameter
-                                    ticket.isWinner = !wins.isEmpty
-                                    try? context.save()
-                                }
+                        if ticket.drawDates.count > 0{
+                            let today = Calendar.current.startOfDay(for: Date())
+                            let lastDrawDate = Calendar.current.startOfDay(for: ticket.drawDates.last!)
+                            if today > lastDrawDate{
+                                //so we are now checking it so we can update this tickets isWinner parameter
+                                ticket.isWinner = !wins.isEmpty
+                                try? context.save()
                             }
+                        }
+                        
+                        if ticket.isWinner == nil{ //indicates that we have never checked the results of this ticket before
+                            isTicketFinished = false //indicates that the ticket is currently live
                         }else{
-                            pastResultSheetHasBeenChecked = true
+                            isTicketFinished = true
                         }
                         
                     } label: {
@@ -274,11 +273,12 @@ struct ContentView: View {
                         .font(.title2)
                         .fontWeight(.medium)
                         .foregroundStyle(.secondary)
+                    
                     winsCards(wins: data.wins, game: data.ticket.game)
                 }
             }else{
                 VStack{
-                    if pastResultSheetHasBeenChecked == false {
+                    if isTicketFinished == false {
                         Text("This draw hasn't occurred yet")
                             .font(.title2)
                             .fontWeight(.medium)
@@ -353,18 +353,6 @@ struct ContentView: View {
                     scannedTicketsView
                 }
                 .padding()
-                .overlay {
-                    if isProcessing {
-                        VStack {
-                            ProgressView()
-                            Text("Extracting ticket information")
-                                .foregroundStyle(.primary)
-                                .padding(.top, 8)
-                        }
-                        .padding()
-                        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 12))
-                    }
-                }
                 //call the recognize text function to read the text off of the image
                 .onChange(of: selectedImage) {
                     if let selectedImage = selectedImage {
@@ -447,6 +435,18 @@ struct ContentView: View {
         }
         .sheet(item: $pastResultSheetData){ data in
             pastResultSheet(data: data)
+        }
+        .overlay {
+            if isProcessing {
+                VStack {
+                    ProgressView()
+                    Text("Extracting ticket information")
+                        .foregroundStyle(.primary)
+                        .padding(.top, 8)
+                }
+                .padding()
+                .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 12))
+            }
         }
     }
     
