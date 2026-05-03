@@ -20,6 +20,8 @@ This is based off of the previous code written in Python in the Lottery-Applicat
 - Can check the found numbers from the ticket against the database, determining if the ticket is a winner or not
 - Classify the lottery game to determine what game the ticket is for
 - Litterally the whole UI/app
+- Ticket history/scan log on home page to see which ticket's the user has scanned
+- Push notifications for upcoming draws (if a user scans a future ticket, save those numbers, and create a notifcation that appears once that draw happens to remind them to check if they won
 
 ## Known Issues
 - The OCR for extracting numbers is not reliable, so not all lottery numbers/dates will be extracted from the text.
@@ -29,6 +31,4 @@ This is based off of the previous code written in Python in the Lottery-Applicat
 
 ## Future Things to Add:
 - Have the app tell you an estamated amount of winning.
-- Push notifications for upcoming draws (if a user scans a future ticket, save those numbers, and create a notifcation that appears once that draw happens to remind them to check if they won
-- Ticket history/scan log on home page to see which ticket's the user has scanned
 - Have the user be able to take a photo of multiple separate ticket at a time
