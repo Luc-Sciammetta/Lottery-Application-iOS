@@ -236,20 +236,37 @@ struct ConfirmView: View {
         content.sound = .default
         
         var triggerDate = Calendar.current.dateComponents([.year, .month, .day], from: drawDate)
-        triggerDate.hour = 10 //10am
+        triggerDate.hour = 9 //9am
         triggerDate.minute = 0
         
         guard let reminderDate = Calendar.current.date(from: triggerDate), let nextDay = Calendar.current.date(byAdding: .day, value: 1, to: reminderDate) else { return }
         
         let nextDayComponents = Calendar.current.dateComponents([.year, .month, .day, .hour, .minute], from: nextDay)
         let trigger = UNCalendarNotificationTrigger(dateMatching: nextDayComponents, repeats: false)
+        let identifier = "ticket-\(game)-\(drawDate.timeIntervalSince1970)"
         
-        let request = UNNotificationRequest(identifier: "ticket-\(game)-\(drawDate.timeIntervalSince1970)", content: content, trigger: trigger)
-        UNUserNotificationCenter.current().add(request) {error in
-            if let error { print("Failed to schedule notification: \(error)") }
+        //check existing notifications before scheduling
+        UNUserNotificationCenter.current().getPendingNotificationRequests { existingRequests in
+            let conflict = existingRequests.first { request in
+                guard let existingTrigger = request.trigger as? UNCalendarNotificationTrigger else { return false }
+                //skip if it's the same notification (already scheduled)
+                if request.identifier == identifier { return true }
+                //check if another notification fires at the same date/time
+                return existingTrigger.dateComponents == nextDayComponents
+            }
+            
+            if let conflict {
+                print("Notification already scheduled at this time: \(conflict.identifier)")
+                return
+            }
+            
+            let request = UNNotificationRequest(identifier: identifier, content: content, trigger: trigger)
+            UNUserNotificationCenter.current().add(request) {error in
+                if let error { print("Failed to schedule notification: \(error)") }
+            }
+            
+            print("Reminder Scheduled for \(nextDayComponents) with message \(content.body)")
         }
-        
-        print("Reminder Scheduled for \(nextDayComponents) with message \(content.body)")
     }
     
     // MARK: - Date Section
@@ -738,7 +755,7 @@ struct ConfirmView: View {
             
             checkTicketButton
         }
-        .navigationTitle("Confirm Numbers")
+        .navigationTitle("Confirm Details")
         .navigationBarTitleDisplayMode(.inline)
         .onChange(of: selectedGame) {
             let old = ticket.game
