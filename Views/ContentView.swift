@@ -177,6 +177,13 @@ struct ContentView: View {
                                 //so we are now checking it so we can update this tickets isWinner parameter
                                 ticket.isWinner = !wins.isEmpty
                                 try? context.save()
+                                
+                                //delete any notifications associated with this ticket
+                                if let lastDate = ticket.drawDates.last {
+                                    UNUserNotificationCenter.current().removePendingNotificationRequests(
+                                        withIdentifiers: ["ticket-\(ticket.game)-\(lastDate.timeIntervalSince1970)"]
+                                    )
+                                }
                             }
                         }
                         
@@ -318,7 +325,7 @@ struct ContentView: View {
             }
             .padding()
             
-            Text("Scan a ticket to check for wins")
+            Text("Scan a lottery ticket to check for wins")
                 .font(.headline)
                 .fontWeight(.medium)
                 .foregroundStyle(.secondary)
