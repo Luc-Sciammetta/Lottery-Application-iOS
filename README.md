@@ -6,7 +6,7 @@ The goal of this project is to allow users to take a photo of their lottery tick
 
 This will be done using image recognition techniques to determine lottery ticket type, and extract the numbers from the photo and then comparing them against the fetched lottery data.
 
-This is based off of the previous code written in Python in the Lottery-Application GitHub repository.
+This is based off of the previous code written in Python in the [Lottery-Application](https://github.com/Luc-Sciammetta/Lottery-Application) GitHub repository.
 
 ## Features
 - Fetch lottery data from public APIs.
